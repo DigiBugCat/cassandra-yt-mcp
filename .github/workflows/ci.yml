@@ -7,7 +7,7 @@ on:
 
 jobs:
   backend:
-    runs-on: arc-runner-yt-mcp
+    runs-on: gh-arc-cassandra-yt-mcp
     defaults:
       run:
         working-directory: backend
@@ -21,7 +21,7 @@ jobs:
       - run: docker build -t cassandra-yt-mcp-backend .
 
   worker:
-    runs-on: arc-runner-yt-mcp
+    runs-on: gh-arc-cassandra-yt-mcp
     defaults:
       run:
         working-directory: worker
@@ -34,7 +34,7 @@ jobs:
       - run: npm run type-check
 
   terraform:
-    runs-on: arc-runner-yt-mcp
+    runs-on: gh-arc-cassandra-yt-mcp
     defaults:
       run:
         working-directory: infra/modules/worker-edge
