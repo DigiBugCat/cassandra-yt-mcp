@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
+  }
+}
+
 resource "cloudflare_zero_trust_access_application" "backend" {
   zone_id                    = var.zone_id
   name                       = var.application_name
