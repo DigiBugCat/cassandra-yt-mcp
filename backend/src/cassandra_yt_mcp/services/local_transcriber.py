@@ -72,11 +72,15 @@ class LocalTranscriber:
         if self._diarization_pipeline is None:
             from pyannote.audio import Pipeline  # noqa: PLC0415
 
-            if self._huggingface_token:
-                import huggingface_hub  # noqa: PLC0415
-
-                huggingface_hub.login(token=self._huggingface_token, add_to_git_credential=False)
-            pipeline = Pipeline.from_pretrained(_PYANNOTE_PIPELINE)
+            pipeline = Pipeline.from_pretrained(
+                _PYANNOTE_PIPELINE,
+                use_auth_token=self._huggingface_token,
+            )
+            if pipeline is None:
+                raise RuntimeError(
+                    f"Failed to load {_PYANNOTE_PIPELINE}. "
+                    "Ensure you've accepted the model license on HuggingFace."
+                )
             pipeline.to(self._device)
             self._diarization_pipeline = pipeline
 
