@@ -72,10 +72,11 @@ class LocalTranscriber:
         if self._diarization_pipeline is None:
             from pyannote.audio import Pipeline  # noqa: PLC0415
 
-            kwargs: dict[str, str] = {}
             if self._huggingface_token:
-                kwargs["token"] = self._huggingface_token
-            pipeline = Pipeline.from_pretrained(_PYANNOTE_PIPELINE, **kwargs)
+                import huggingface_hub  # noqa: PLC0415
+
+                huggingface_hub.login(token=self._huggingface_token, add_to_git_credential=False)
+            pipeline = Pipeline.from_pretrained(_PYANNOTE_PIPELINE)
             pipeline.to(self._device)
             self._diarization_pipeline = pipeline
 
