@@ -70,13 +70,14 @@ class LocalTranscriber:
             self._asr_model = model
 
         if self._diarization_pipeline is None:
-            import torch.serialization  # noqa: PLC0415
+            import os  # noqa: PLC0415
 
             from pyannote.audio import Pipeline  # noqa: PLC0415
 
-            # pyannote 3.x checkpoints contain TorchVersion which torch 2.6+
-            # rejects under the default weights_only=True policy.
-            torch.serialization.add_safe_globals([__import__("torch").torch_version.TorchVersion])
+            # pyannote 3.x checkpoints use globals (TorchVersion, omegaconf
+            # classes, etc.) that torch 2.6+ rejects under weights_only=True.
+            # Models come from HuggingFace so this is safe.
+            os.environ["TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"] = "1"
 
             pipeline = Pipeline.from_pretrained(
                 _PYANNOTE_PIPELINE,
