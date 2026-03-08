@@ -1,3 +1,7 @@
+# GPU_BASE is overridden by CI to use the pre-built registry image directly,
+# skipping the gpu-base stage entirely. For local builds, falls back to gpu-base.
+ARG GPU_BASE=gpu-base
+
 # ── Stage 1: GPU/ML dependencies (cached as separate image in local registry) ──
 FROM nvidia/cuda:12.8.1-runtime-ubuntu24.04 AS gpu-base
 
@@ -22,10 +26,6 @@ RUN pip install --no-cache-dir --upgrade pip \
       "pyannote.audio>=3.3.0"
 
 # ── Stage 2: App code (fast, changes often) ──
-# GPU_BASE is overridden by CI to use the pre-built registry image directly,
-# skipping the gpu-base stage entirely. For local builds, falls back to the
-# gpu-base stage above.
-ARG GPU_BASE=gpu-base
 FROM ${GPU_BASE} AS app
 
 ARG YTDLP_CHANNEL=nightly

@@ -32,8 +32,8 @@ jobs:
       - name: Check if gpu-base needs rebuild
         id: check-base
         run: |
-          # Hash the gpu-base portion of the Dockerfile (everything before the app stage)
-          BASE_HASH=$(sed '/^FROM \${GPU_BASE}/q' backend/Dockerfile | sha256sum | cut -c1-16)
+          # Hash the gpu-base portion of the Dockerfile (from first FROM to app stage)
+          BASE_HASH=$(sed -n '/^FROM nvidia/,/^FROM \${GPU_BASE}/p' backend/Dockerfile | sha256sum | cut -c1-16)
           # Compare with label on cached image
           CACHED_HASH=$(docker inspect --format='{{index .Config.Labels "gpu-base.hash"}}' \
             ${{ env.REGISTRY }}/${{ env.GPU_BASE_TAG }} 2>/dev/null || echo "none")
