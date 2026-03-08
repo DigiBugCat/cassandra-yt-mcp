@@ -79,9 +79,26 @@ class LocalTranscriber:
             pipeline.to(self._device)
             self._diarization_pipeline = pipeline
 
+    @staticmethod
+    def _ensure_mono(audio_path: Path) -> Path:
+        """Downmix to mono 16kHz WAV if needed — Parakeet expects single-channel input."""
+        import torchaudio  # noqa: PLC0415
+
+        waveform, sr = torchaudio.load(str(audio_path))
+        if waveform.shape[0] == 1 and sr == 16000:
+            return audio_path
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+        if sr != 16000:
+            waveform = torchaudio.functional.resample(waveform, sr, 16000)
+        mono_path = audio_path.with_suffix(".mono.wav")
+        torchaudio.save(str(mono_path), waveform, 16000)
+        return mono_path
+
     def transcribe(self, audio_path: Path) -> TranscriptResult:
         self._load_models()
-        audio_str = str(audio_path)
+        mono_path = self._ensure_mono(audio_path)
+        audio_str = str(mono_path)
         hypothesis = self._asr_model.transcribe([audio_str], timestamps=True)[0]  # type: ignore[union-attr]
         text = str(hypothesis.text).strip()
         detected_lang = self._detect_language(hypothesis, text)
