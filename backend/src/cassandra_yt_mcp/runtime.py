@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Event, Thread
@@ -10,9 +11,22 @@ from cassandra_yt_mcp.config import Settings
 from cassandra_yt_mcp.db.database import Database
 from cassandra_yt_mcp.db.jobs import JobsRepository
 from cassandra_yt_mcp.db.transcripts import TranscriptsRepository
+from cassandra_yt_mcp.metrics import (
+    audio_duration_seconds,
+    download_duration_seconds,
+    jobs_in_progress,
+    jobs_queued,
+    jobs_total,
+    speaker_count,
+    speed_ratio,
+    transcription_duration_seconds,
+    transcripts_stored,
+    word_count,
+)
 from cassandra_yt_mcp.services.downloader import Downloader
 from cassandra_yt_mcp.services.fallback_transcriber import FallbackTranscriber
 from cassandra_yt_mcp.services.local_transcriber import LocalTranscriber
+from cassandra_yt_mcp.services.remote_transcriber import RemoteTranscriber
 from cassandra_yt_mcp.services.storage import StorageService
 from cassandra_yt_mcp.services.transcriber import AssemblyAITranscriber
 from cassandra_yt_mcp.services.youtube_info import YouTubeInfoService
@@ -67,6 +81,7 @@ class BackgroundWorker:
             if job is None:
                 self._stop_event.wait(self.poll_interval_seconds)
                 continue
+            jobs_queued.dec()
             self._active_count += 1
             self._executor.submit(self._handle_job, job)
 
@@ -79,9 +94,12 @@ class BackgroundWorker:
                 url=str(job["url"]),
                 normalized_url=str(job["normalized_url"]),
             )
+            transcriber_used = getattr(self.transcriber, "last_transcriber_used", "unknown")
+            jobs_total.labels(status="completed", transcriber=transcriber_used).inc()
         except Exception as exc:  # noqa: BLE001
             logger.exception("Job %s failed", job_id)
             self.jobs.mark_failed(job_id, str(exc).strip() or "Unknown worker error", attempt)
+            jobs_total.labels(status="failed", transcriber="unknown").inc()
             # Clear CUDA cache after failures to prevent corrupted allocator state
             try:
                 import torch  # noqa: PLC0415
@@ -94,10 +112,35 @@ class BackgroundWorker:
             self._active_count -= 1
 
     def _process_job(self, *, job_id: str, url: str, normalized_url: str) -> None:
-        download = self.downloader.download(url=url, job_id=job_id)
+        # Download phase
+        jobs_in_progress.labels(phase="downloading").inc()
+        try:
+            t0 = time.monotonic()
+            download = self.downloader.download(url=url, job_id=job_id)
+            download_duration_seconds.observe(time.monotonic() - t0)
+        finally:
+            jobs_in_progress.labels(phase="downloading").dec()
+
         self.jobs.set_status(job_id, "transcribing")
-        audio_path = Path(download.audio_path)
-        transcript_result = self.transcriber.transcribe(audio_path)
+
+        # Transcription phase
+        jobs_in_progress.labels(phase="transcribing").inc()
+        try:
+            audio_path = Path(download.audio_path)
+            t1 = time.monotonic()
+            transcript_result = self.transcriber.transcribe(audio_path)
+            transcribe_elapsed = time.monotonic() - t1
+            transcription_duration_seconds.observe(transcribe_elapsed)
+        finally:
+            jobs_in_progress.labels(phase="transcribing").dec()
+
+        # Record content metrics
+        duration_val = self._as_float(download.metadata.get("duration"))
+        if duration_val and duration_val > 0:
+            audio_duration_seconds.observe(duration_val)
+            if transcribe_elapsed > 0:
+                speed_ratio.observe(duration_val / transcribe_elapsed)
+
         persisted = self.storage.persist(
             metadata=download.metadata,
             normalized_url=normalized_url,
@@ -105,8 +148,11 @@ class BackgroundWorker:
             transcript=transcript_result,
             temp_audio_path=audio_path,
         )
-        word_count = len(transcript_result.text.split())
+        wc = len(transcript_result.text.split())
+        word_count.observe(wc)
         speakers = {segment.speaker for segment in transcript_result.segments if segment.speaker}
+        if speakers:
+            speaker_count.observe(len(speakers))
         self.transcripts.upsert(
             video_id=str(persisted["video_id"]),
             normalized_url=normalized_url,
@@ -122,10 +168,11 @@ class BackgroundWorker:
             thumbnail=self._as_str(download.metadata.get("thumbnail")),
             view_count=self._as_int(download.metadata.get("view_count")),
             speaker_count=len(speakers) if speakers else None,
-            word_count=word_count,
+            word_count=wc,
             confidence=None,
         )
         self.jobs.mark_completed(job_id, str(persisted["video_id"]), str(persisted["path"]))
+        transcripts_stored.inc()
         work_dir = self.downloader.work_root / job_id
         if work_dir.exists():
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -161,21 +208,7 @@ class AppRuntime:
         self.downloader = Downloader(settings.data_dir / "_work")
         self.storage = StorageService(settings.data_dir)
         self.youtube_info = YouTubeInfoService()
-        local = (
-            LocalTranscriber(huggingface_token=settings.huggingface_token)
-            if settings.enable_local_transcription
-            else None
-        )
-        fallback = (
-            AssemblyAITranscriber(api_key=settings.assemblyai_api_key)
-            if settings.assemblyai_api_key
-            else None
-        )
-        self.transcriber = FallbackTranscriber(
-            local=local,
-            fallback=fallback,
-            enable_local=settings.enable_local_transcription,
-        )
+        self.transcriber = self._build_transcriber(settings)
         self.worker = BackgroundWorker(
             jobs=self.jobs,
             transcripts=self.transcripts,
@@ -187,11 +220,36 @@ class AppRuntime:
         )
 
     def start(self) -> None:
+        transcripts_stored.set(self.transcripts.count())
+        jobs_queued.set(self.jobs.count_queued())
         self.worker.start()
 
     def close(self) -> None:
         self.worker.stop()
         self.database.close()
+
+    @staticmethod
+    def _build_transcriber(settings: Settings) -> object:
+        if settings.role == "coordinator":
+            logger.info("Coordinator mode — dispatching to GPU workers: %s", settings.gpu_workers)
+            return RemoteTranscriber(settings.gpu_workers)
+
+        # standalone mode: local GPU with optional AssemblyAI fallback
+        local = (
+            LocalTranscriber(huggingface_token=settings.huggingface_token)
+            if settings.enable_local_transcription
+            else None
+        )
+        fallback = (
+            AssemblyAITranscriber(api_key=settings.assemblyai_api_key)
+            if settings.assemblyai_api_key
+            else None
+        )
+        return FallbackTranscriber(
+            local=local,
+            fallback=fallback,
+            enable_local=settings.enable_local_transcription,
+        )
 
     def enqueue_transcription(self, url: str) -> dict[str, object]:
         normalized_url = normalize_url(url)
@@ -215,6 +273,7 @@ class AppRuntime:
                 "deduplicated": True,
             }
         job = self.jobs.enqueue(url=url, normalized_url=normalized_url)
+        jobs_queued.inc()
         return {"job_id": job["id"], "status": job["status"], "deduplicated": False}
 
     def get_job_status(self, job_id: str) -> dict[str, object]:

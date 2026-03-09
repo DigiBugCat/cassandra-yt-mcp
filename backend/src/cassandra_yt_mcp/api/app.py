@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from cassandra_yt_mcp.config import Settings, load_settings
+from cassandra_yt_mcp.metrics import api_request_duration_seconds, api_requests_total
 from cassandra_yt_mcp.models.api import TranscribeRequest
 from cassandra_yt_mcp.runtime import AppRuntime
+
+_SKIP_METRICS_PATHS = frozenset({"/metrics", "/healthz"})
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -25,6 +30,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             runtime.close()
 
     app = FastAPI(title="cassandra-yt-mcp-backend", version="0.1.0", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def metrics_middleware(request: Request, call_next):  # noqa: ANN001
+        path = request.url.path
+        if path in _SKIP_METRICS_PATHS:
+            return await call_next(request)
+        start = time.monotonic()
+        response = await call_next(request)
+        elapsed = time.monotonic() - start
+        endpoint = path.split("/")[:4]  # collapse /api/transcripts/<id> → /api/transcripts
+        endpoint_label = "/".join(endpoint[:4]) if len(endpoint) >= 4 else path
+        method = request.method
+        api_requests_total.labels(method=method, endpoint=endpoint_label, status=response.status_code).inc()
+        api_request_duration_seconds.labels(method=method, endpoint=endpoint_label).observe(elapsed)
+        return response
+
+    @app.get("/metrics")
+    def prometheus_metrics() -> Response:
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     def get_runtime(request: Request) -> AppRuntime:
         return request.app.state.runtime  # type: ignore[no-any-return]

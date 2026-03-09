@@ -4,25 +4,46 @@ import logging
 
 import uvicorn
 
-from cassandra_yt_mcp.api.app import create_app
 from cassandra_yt_mcp.config import load_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 
+logger = logging.getLogger(__name__)
+
 
 def app():
+    from cassandra_yt_mcp.api.app import create_app  # noqa: PLC0415
+
     return create_app(load_settings())
+
+
+def worker_app():
+    from cassandra_yt_mcp.worker_server import create_worker_app  # noqa: PLC0415
+
+    return create_worker_app(load_settings())
 
 
 def cli() -> None:
     settings = load_settings()
-    uvicorn.run(
-        "cassandra_yt_mcp.main:app",
-        host=settings.host,
-        port=settings.port,
-        factory=True,
-        reload=False,
-    )
+
+    if settings.role == "worker":
+        logger.info("Starting in WORKER mode on port %d", settings.worker_port)
+        uvicorn.run(
+            "cassandra_yt_mcp.main:worker_app",
+            host=settings.host,
+            port=settings.worker_port,
+            factory=True,
+            reload=False,
+        )
+    else:
+        logger.info("Starting in %s mode on port %d", settings.role.upper(), settings.port)
+        uvicorn.run(
+            "cassandra_yt_mcp.main:app",
+            host=settings.host,
+            port=settings.port,
+            factory=True,
+            reload=False,
+        )
 
 
 if __name__ == "__main__":

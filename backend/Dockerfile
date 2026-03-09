@@ -59,14 +59,18 @@ USER app
 
 ENV PYTHONUNBUFFERED=1 \
     PORT=3000 \
+    WORKER_PORT=3001 \
     HOST=0.0.0.0 \
     DATA_DIR=/data \
     DATABASE_PATH=/data/cassandra_yt_mcp.sqlite3 \
-    POLL_INTERVAL_SECONDS=5
+    POLL_INTERVAL_SECONDS=5 \
+    ROLE=standalone
 
-EXPOSE 3000
+EXPOSE 3000 3001
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null || exit 1
+  CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null \
+   || curl -fsS "http://127.0.0.1:${WORKER_PORT}/worker/healthz" >/dev/null \
+   || exit 1
 
 CMD ["cassandra-yt-mcp-backend"]

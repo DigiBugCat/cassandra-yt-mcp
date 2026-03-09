@@ -19,6 +19,9 @@ class Settings:
     max_workers: int
     backend_api_token: str | None
     enable_local_transcription: bool
+    role: str  # "standalone" | "coordinator" | "worker"
+    gpu_workers: list[str]  # URLs for remote GPU workers (coordinator mode)
+    worker_port: int  # Port for worker HTTP server (worker mode)
 
 
 def _as_int(name: str, default: int) -> int:
@@ -35,6 +38,13 @@ def load_settings() -> Settings:
         os.getenv("DATABASE_PATH", str(data_dir / "cassandra_yt_mcp.sqlite3"))
     ).resolve()
 
+    role = os.getenv("ROLE", "standalone").lower()
+    if role not in ("standalone", "coordinator", "worker"):
+        raise ValueError(f"ROLE must be standalone|coordinator|worker, got '{role}'")
+
+    gpu_workers_raw = os.getenv("GPU_WORKERS", "").strip()
+    gpu_workers = [u.strip() for u in gpu_workers_raw.split(",") if u.strip()] if gpu_workers_raw else []
+
     return Settings(
         host=os.getenv("HOST", "0.0.0.0"),
         port=_as_int("PORT", 3000),
@@ -47,4 +57,7 @@ def load_settings() -> Settings:
         backend_api_token=os.getenv("BACKEND_API_TOKEN", "").strip() or None,
         enable_local_transcription=os.getenv("ENABLE_LOCAL_TRANSCRIPTION", "true").lower()
         in ("true", "1", "yes"),
+        role=role,
+        gpu_workers=gpu_workers,
+        worker_port=_as_int("WORKER_PORT", 3001),
     )

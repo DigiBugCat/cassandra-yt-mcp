@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from cassandra_yt_mcp.db.database import Database
+from cassandra_yt_mcp.metrics import retries_total
 
 ACTIVE_STATUSES = ("queued", "downloading", "transcribing")
 MAX_ATTEMPTS = 3
@@ -14,6 +15,10 @@ _MAX_RETRY_DELAY_SECONDS = 600
 class JobsRepository:
     def __init__(self, db: Database) -> None:
         self.db = db
+
+    def count_queued(self) -> int:
+        row = self.db.conn.execute("SELECT COUNT(*) FROM jobs WHERE status = 'queued'").fetchone()
+        return int(row[0]) if row else 0
 
     def enqueue(self, url: str, normalized_url: str) -> dict[str, Any]:
         job_id = str(uuid.uuid4())
@@ -105,6 +110,7 @@ class JobsRepository:
         next_attempt = attempt + 1
         with self.db.lock:
             if next_attempt < MAX_ATTEMPTS:
+                retries_total.inc()
                 delay = min(_BASE_RETRY_DELAY_SECONDS * (2**attempt), _MAX_RETRY_DELAY_SECONDS)
                 self.db.conn.execute(
                     """

@@ -9,6 +9,10 @@ class TranscriptsRepository:
     def __init__(self, db: Database) -> None:
         self.db = db
 
+    def count(self) -> int:
+        row = self.db.conn.execute("SELECT COUNT(*) FROM transcripts").fetchone()
+        return int(row[0]) if row else 0
+
     def get_by_video_id(self, video_id: str) -> dict[str, Any] | None:
         row = self.db.conn.execute(
             "SELECT * FROM transcripts WHERE video_id = ? LIMIT 1",
