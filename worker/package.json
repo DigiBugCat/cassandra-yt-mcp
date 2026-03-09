@@ -13,6 +13,7 @@
     "@cloudflare/workers-oauth-provider": "^0.3.0",
     "@modelcontextprotocol/sdk": "^1.19.0",
     "agents": "^0.7.5",
+    "cassandra-observability": "github:DigiBugCat/cassandra-observability",
     "hono": "^4.12.5",
     "zod": "^4.3.6"
   },

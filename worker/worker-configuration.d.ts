@@ -9,6 +9,9 @@ declare namespace Cloudflare {
     BACKEND_API_TOKEN?: string;
     CF_ACCESS_CLIENT_ID?: string;
     CF_ACCESS_CLIENT_SECRET?: string;
+    VM_PUSH_URL: string;
+    VM_PUSH_CLIENT_ID: string;
+    VM_PUSH_CLIENT_SECRET: string;
     CASSANDRA_YT_MCP_OBJECT: DurableObjectNamespace<import("./src/index").CassandraYtMCP>;
   }
 }

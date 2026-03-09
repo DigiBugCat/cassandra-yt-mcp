@@ -2,6 +2,7 @@ import OAuthProvider from "@cloudflare/workers-oauth-provider";
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { pushMetrics, counter } from "cassandra-observability";
 import { backendGet, backendPost, jsonToolResponse } from "./backend";
 import { WorkOSHandler } from "./workos-handler";
 import type { Props } from "./utils";
@@ -224,7 +225,7 @@ async function resolveExternalToken(input: {
   }
 }
 
-export default new OAuthProvider({
+const oauthProvider = new OAuthProvider({
   apiHandler: CassandraYtMCP.serve("/mcp"),
   apiRoute: "/mcp",
   authorizeEndpoint: "/authorize",
@@ -233,3 +234,28 @@ export default new OAuthProvider({
   tokenEndpoint: "/token",
   resolveExternalToken,
 });
+
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const start = Date.now();
+    const response = oauthProvider.fetch(request, env, ctx);
+    // Fire-and-forget metrics after response resolves
+    ctx.waitUntil(
+      Promise.resolve(response).then((res) => {
+        const path = new URL(request.url).pathname;
+        return pushMetrics(env, [
+          counter("mcp_requests_total", 1, {
+            service: "yt-mcp",
+            status: String(res.status),
+            path: path.startsWith("/mcp") ? "/mcp" : path,
+          }),
+          counter("mcp_request_duration_ms_total", Date.now() - start, {
+            service: "yt-mcp",
+            path: path.startsWith("/mcp") ? "/mcp" : path,
+          }),
+        ]);
+      }),
+    );
+    return response;
+  },
+};
