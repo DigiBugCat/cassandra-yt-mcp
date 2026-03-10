@@ -1,6 +1,7 @@
 import type { McpAuthEnv } from "cassandra-mcp-auth";
 
-declare namespace Cloudflare {
+declare global {
+  // Extend McpAuthEnv with service-specific bindings via interface merging
   interface Env extends McpAuthEnv {
     BACKEND_BASE_URL: string;
     BACKEND_API_TOKEN?: string;
@@ -9,4 +10,4 @@ declare namespace Cloudflare {
   }
 }
 
-interface Env extends Cloudflare.Env {}
+export {};

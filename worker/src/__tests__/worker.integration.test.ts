@@ -45,7 +45,7 @@ const { CassandraYtMCP, default: worker } = await import("../index");
 
 describe("yt-mcp worker via createMcpWorker", () => {
   it("exports the McpAgent class with correct server name", () => {
-    const agent = new CassandraYtMCP();
+    const agent = new CassandraYtMCP({} as any, {} as any);
     expect(agent.server).toBeDefined();
     expect(agent.server.options).toEqual(
       expect.objectContaining({ name: "Cassandra YT MCP", version: "1.0.0" }),
@@ -53,7 +53,7 @@ describe("yt-mcp worker via createMcpWorker", () => {
   });
 
   it("registers all 8 yt-mcp tools on init", async () => {
-    const agent = new CassandraYtMCP();
+    const agent = new CassandraYtMCP({} as any, {} as any);
     (agent as any).env = {
       BACKEND_BASE_URL: "https://backend.test",
       BACKEND_API_TOKEN: "test-token",
