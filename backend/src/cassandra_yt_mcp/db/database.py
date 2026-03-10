@@ -86,6 +86,17 @@ class Database:
             )
             self._conn.commit()
 
+            # Migrations for existing databases
+            self._migrate()
+
+    def _migrate(self) -> None:
+        """Run incremental schema migrations for existing databases."""
+        cursor = self._conn.execute("PRAGMA table_info(jobs)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "audio_path" not in columns:
+            self._conn.execute("ALTER TABLE jobs ADD COLUMN audio_path TEXT")
+            self._conn.commit()
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

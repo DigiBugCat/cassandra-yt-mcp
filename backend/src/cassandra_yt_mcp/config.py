@@ -22,6 +22,8 @@ class Settings:
     role: str  # "standalone" | "coordinator" | "worker"
     gpu_workers: list[str]  # URLs for remote GPU workers (coordinator mode)
     worker_port: int  # Port for worker HTTP server (worker mode)
+    download_concurrency: int  # Number of concurrent downloads (downloader mode)
+    downloader_port: int  # Port for downloader healthz (downloader mode)
 
 
 def _as_int(name: str, default: int) -> int:
@@ -39,8 +41,8 @@ def load_settings() -> Settings:
     ).resolve()
 
     role = os.getenv("ROLE", "standalone").lower()
-    if role not in ("standalone", "coordinator", "worker"):
-        raise ValueError(f"ROLE must be standalone|coordinator|worker, got '{role}'")
+    if role not in ("standalone", "coordinator", "worker", "downloader"):
+        raise ValueError(f"ROLE must be standalone|coordinator|worker|downloader, got '{role}'")
 
     gpu_workers_raw = os.getenv("GPU_WORKERS", "").strip()
     gpu_workers = [u.strip() for u in gpu_workers_raw.split(",") if u.strip()] if gpu_workers_raw else []
@@ -60,4 +62,6 @@ def load_settings() -> Settings:
         role=role,
         gpu_workers=gpu_workers,
         worker_port=_as_int("WORKER_PORT", 3001),
+        download_concurrency=_as_int("DOWNLOAD_CONCURRENCY", 2),
+        downloader_port=_as_int("DOWNLOADER_PORT", 3002),
     )

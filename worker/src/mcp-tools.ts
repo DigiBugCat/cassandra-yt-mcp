@@ -6,7 +6,7 @@ export function registerMcpTools(server: McpServer, env: Env): void {
   server.registerTool(
     "transcribe",
     {
-      description: "Queue a video for transcription.",
+      description: "Queue a video for transcription. Supports single videos and playlist URLs (all videos in the playlist will be queued).",
       annotations: { readOnlyHint: false, idempotentHint: true },
       inputSchema: { url: z.string().describe("The video URL to transcribe (YouTube, etc.)") },
     },

@@ -31,7 +31,10 @@ class YouTubeInfoService:
 
     @staticmethod
     def _run_ytdlp(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
-        completed = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=timeout)
+        try:
+            completed = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"yt-dlp timed out after {timeout} seconds") from exc
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr.strip() or "yt-dlp failed")
         return completed

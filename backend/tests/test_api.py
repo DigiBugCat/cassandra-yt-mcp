@@ -23,6 +23,8 @@ def make_settings(tmp_path: Path) -> Settings:
         role="standalone",
         gpu_workers=[],
         worker_port=3001,
+        download_concurrency=2,
+        downloader_port=3002,
     )
 
 

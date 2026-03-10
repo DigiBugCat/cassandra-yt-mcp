@@ -1,6 +1,6 @@
 import pytest
 
-from cassandra_yt_mcp.utils.url import extract_youtube_video_id, normalize_url
+from cassandra_yt_mcp.utils.url import extract_youtube_video_id, is_playlist_url, normalize_url
 
 
 @pytest.mark.parametrize(
@@ -27,3 +27,29 @@ def test_generic_strips_www() -> None:
 
 def test_extract_video_id() -> None:
     assert extract_youtube_video_id("https://youtube.com/watch?v=abc123") == "abc123"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
+        "https://youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
+        "https://youtube.com/watch?v=abc123&list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
+        "https://www.youtube.com/watch?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
+    ],
+)
+def test_is_playlist_url_true(url: str) -> None:
+    assert is_playlist_url(url) is True
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://youtube.com/watch?v=abc123",
+        "https://youtu.be/abc123",
+        "https://youtube.com/shorts/abc123",
+        "https://example.com/playlist?list=xyz",
+    ],
+)
+def test_is_playlist_url_false(url: str) -> None:
+    assert is_playlist_url(url) is False

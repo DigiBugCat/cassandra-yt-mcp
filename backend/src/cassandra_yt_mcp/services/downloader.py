@@ -51,6 +51,45 @@ class Downloader:
             raise RuntimeError("Audio file was not produced by yt-dlp")
         return DownloadResult(metadata=metadata, audio_path=str(candidates[0]))
 
+    def expand_playlist(self, url: str) -> list[dict[str, object]]:
+        """Expand a playlist URL into individual video entries (metadata only, no download)."""
+        cmd = [
+            "yt-dlp",
+            "--flat-playlist",
+            "--dump-json",
+            "--no-download",
+            "--no-warnings",
+            url,
+        ]
+
+        try:
+            completed = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=60)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("Playlist expansion timed out after 60 seconds") from exc
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr.strip() or "yt-dlp playlist expansion failed")
+
+        entries: list[dict[str, object]] = []
+        for line in completed.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+                if isinstance(data, dict):
+                    video_id = data.get("id", "")
+                    entries.append({
+                        "id": video_id,
+                        "title": data.get("title", ""),
+                        "url": data.get("url") or f"https://www.youtube.com/watch?v={video_id}",
+                    })
+            except json.JSONDecodeError:
+                continue
+
+        if not entries:
+            raise RuntimeError("No videos found in playlist")
+        return entries
+
     @staticmethod
     def _parse_last_json_line(stdout: str) -> dict[str, object]:
         lines = [line.strip() for line in stdout.splitlines() if line.strip()]

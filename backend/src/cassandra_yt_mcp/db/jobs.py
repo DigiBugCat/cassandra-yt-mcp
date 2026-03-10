@@ -6,7 +6,7 @@ from typing import Any
 from cassandra_yt_mcp.db.database import Database
 from cassandra_yt_mcp.metrics import retries_total
 
-ACTIVE_STATUSES = ("queued", "downloading", "transcribing")
+ACTIVE_STATUSES = ("queued", "downloading", "downloaded", "transcribing")
 MAX_ATTEMPTS = 3
 _BASE_RETRY_DELAY_SECONDS = 30
 _MAX_RETRY_DELAY_SECONDS = 600
@@ -88,6 +88,37 @@ class JobsRepository:
                 (job_id,),
             )
             self.db.conn.commit()
+
+    def mark_downloaded(self, job_id: str, audio_path: str) -> None:
+        with self.db.lock:
+            self.db.conn.execute(
+                "UPDATE jobs SET status = 'downloaded', audio_path = ? WHERE id = ?",
+                (audio_path, job_id),
+            )
+            self.db.conn.commit()
+
+    def claim_next_downloaded(self) -> dict[str, Any] | None:
+        with self.db.lock:
+            self.db.conn.execute("BEGIN IMMEDIATE")
+            row = self.db.conn.execute(
+                """
+                SELECT * FROM jobs
+                WHERE status = 'downloaded'
+                ORDER BY created_at ASC
+                LIMIT 1
+                """
+            ).fetchone()
+            if row is None:
+                self.db.conn.commit()
+                return None
+
+            self.db.conn.execute(
+                "UPDATE jobs SET status = 'transcribing' WHERE id = ?",
+                (row["id"],),
+            )
+            self.db.conn.commit()
+
+        return self.get(str(row["id"]))
 
     def set_status(self, job_id: str, status: str) -> None:
         with self.db.lock:

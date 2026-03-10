@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-JobStatus = Literal["queued", "downloading", "transcribing", "completed", "failed"]
+JobStatus = Literal["queued", "downloading", "downloaded", "transcribing", "completed", "failed"]
 TranscriptFormat = Literal["markdown", "json", "text"]
 
 

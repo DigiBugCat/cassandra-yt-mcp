@@ -32,6 +32,30 @@ def extract_youtube_video_id(url: str) -> str | None:
     return _extract_youtube_video_id(parsed)
 
 
+def is_playlist_url(url: str) -> bool:
+    """Check if a URL points to a YouTube playlist."""
+    parsed = urlparse(url.strip())
+    if not parsed.scheme:
+        parsed = urlparse(f"https://{url.strip()}")
+    netloc = parsed.netloc.lower()
+    if netloc.startswith("www."):
+        netloc = netloc[4:]
+    if netloc not in _YT_HOSTNAMES:
+        return False
+    params = dict(parse_qsl(parsed.query, keep_blank_values=False))
+    clean_path = parsed.path.rstrip("/")
+    # Explicit playlist page
+    if clean_path == "/playlist" and "list" in params:
+        return True
+    # Watch URL with list= param but no specific video
+    if "list" in params and "v" not in params:
+        return True
+    # Watch URL with both v= and list= — treat as playlist
+    if "list" in params and "v" in params:
+        return True
+    return False
+
+
 def normalize_url(url: str) -> str:
     parsed = urlparse(url.strip())
     if not parsed.scheme:

@@ -23,6 +23,12 @@ def worker_app():
     return create_worker_app(load_settings())
 
 
+def downloader_app():
+    from cassandra_yt_mcp.downloader_server import create_downloader_app  # noqa: PLC0415
+
+    return create_downloader_app(load_settings())
+
+
 def cli() -> None:
     settings = load_settings()
 
@@ -32,6 +38,15 @@ def cli() -> None:
             "cassandra_yt_mcp.main:worker_app",
             host=settings.host,
             port=settings.worker_port,
+            factory=True,
+            reload=False,
+        )
+    elif settings.role == "downloader":
+        logger.info("Starting in DOWNLOADER mode on port %d", settings.downloader_port)
+        uvicorn.run(
+            "cassandra_yt_mcp.main:downloader_app",
+            host=settings.host,
+            port=settings.downloader_port,
             factory=True,
             reload=False,
         )
