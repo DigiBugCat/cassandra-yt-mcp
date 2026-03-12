@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg curl ca-certificates nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-ARG YTDLP_CHANNEL=nightly
+ARG YTDLP_CHANNEL=stable
 
 RUN set -eux; \
     if [ "$YTDLP_CHANNEL" = "nightly" ]; then \
