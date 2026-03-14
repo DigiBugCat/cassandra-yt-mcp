@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir --upgrade pip \
       numpy \
       soundfile \
       scipy \
-      scikit-learn
+      scikit-learn \
+      huggingface_hub
 
 # Pre-download ASR + VAD models into the image
 RUN mkdir -p /opt/models \
