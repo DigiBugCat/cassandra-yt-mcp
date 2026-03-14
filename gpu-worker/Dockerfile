@@ -27,44 +27,24 @@ RUN cargo build --release
 # ── Stage 2: Download + convert models ──
 FROM python:3.12-slim AS models
 
-RUN pip install --no-cache-dir huggingface-hub onnx numpy
+RUN pip install --no-cache-dir huggingface-hub onnx numpy onnxruntime
 
 # TDT model — download FP32, convert encoder to FP16 for 2x Tensor Core throughput
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
 snapshot_download('istupakov/parakeet-tdt-0.6b-v3-onnx', local_dir='/models/tdt')"
 
-# Convert encoder to FP16 (the big model — 600M params).
-# Uses onnxruntime's float16 converter which handles >2GB models on-disk.
+# Convert encoder to FP16 using onnxruntime's optimizer.
+# This handles >2GB models properly and does full graph conversion.
 COPY <<'CONVERT_SCRIPT' /tmp/convert_fp16.py
-import numpy as np
-import onnx
-from onnx import numpy_helper, TensorProto
-
-model_path = "/models/tdt/encoder-model.onnx"
-model = onnx.load(model_path, load_external_data=True)
-
-# Convert float32 initializers to float16 in-place
-converted = 0
-for init in model.graph.initializer:
-    if init.data_type == TensorProto.FLOAT:
-        arr = numpy_helper.to_array(init).astype(np.float16)
-        new_tensor = numpy_helper.from_array(arr, init.name)
-        init.CopyFrom(new_tensor)
-        converted += 1
-
-print(f"Converted {converted} tensors to FP16")
-
-# Save with external data (model > 2GB protobuf limit)
-onnx.save(
-    model,
-    model_path,
-    save_as_external_data=True,
-    all_tensors_to_one_file=True,
-    location="encoder-model.onnx_data",
-    size_threshold=0,
+from onnxruntime.transformers import float16
+float16.convert_float_to_float16(
+    "/models/tdt/encoder-model.onnx",
+    "/models/tdt/encoder-model.onnx",
+    keep_io_types=True,
+    use_external_data_format=True,
 )
-print("Saved FP16 encoder")
+print("Encoder converted to FP16")
 CONVERT_SCRIPT
 RUN python /tmp/convert_fp16.py
 
