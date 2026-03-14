@@ -1,3 +1,4 @@
+# NeMo GPU worker image — PyTorch + Parakeet TDT + pyannote diarization.
 # GPU_BASE is overridden by CI to use the pre-built registry image directly,
 # skipping the gpu-base stage entirely. For local builds, falls back to gpu-base.
 ARG GPU_BASE=gpu-base
