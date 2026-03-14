@@ -46,7 +46,7 @@ class OnnxTranscriber:
     def __init__(self, *, use_gpu: bool = True) -> None:
         self._use_gpu = use_gpu
         self._recognizer: sherpa_onnx.OfflineRecognizer | None = None
-        self._vad: sherpa_onnx.VoiceActivityDetector | None = None
+        self._vad_config: sherpa_onnx.VadModelConfig | None = None
         self._diarization: OnnxDiarization | None = None
 
     def _load_models(self) -> None:
@@ -73,14 +73,15 @@ class OnnxTranscriber:
         logger.info("sherpa-onnx recognizer loaded")
 
         logger.info("Loading Silero VAD from %s", vad_model)
-        vad_config = sherpa_onnx.VadModelConfig()
-        vad_config.silero_vad.model = vad_model
-        vad_config.silero_vad.min_silence_duration = 0.25
-        vad_config.silero_vad.min_speech_duration = 0.25
-        vad_config.sample_rate = _SAMPLE_RATE
-        vad_config.provider = provider
-        self._vad = sherpa_onnx.VoiceActivityDetector(vad_config, buffer_size_in_seconds=30)
-        logger.info("Silero VAD loaded")
+        self._vad_config = sherpa_onnx.VadModelConfig()
+        self._vad_config.silero_vad.model = vad_model
+        self._vad_config.silero_vad.min_silence_duration = 0.25
+        self._vad_config.silero_vad.min_speech_duration = 0.25
+        self._vad_config.sample_rate = _SAMPLE_RATE
+        self._vad_config.provider = provider
+        # Verify config by creating a test instance
+        sherpa_onnx.VoiceActivityDetector(self._vad_config, buffer_size_in_seconds=30)
+        logger.info("Silero VAD config ready")
 
         logger.info("Loading ONNX diarization models")
         # Diarization uses standalone onnxruntime (CPU-only) to avoid conflicts
@@ -263,15 +264,15 @@ class OnnxTranscriber:
         import time  # noqa: PLC0415
 
         assert self._recognizer is not None
-        assert self._vad is not None
+        assert self._vad_config is not None
 
         t_start = time.monotonic()
 
         window_size = 512  # Silero VAD expects 512 samples at 16kHz
         max_stream_chunk = 160000  # 10s — avoid C++ vector overflow in accept_waveform
 
-        vad = self._vad
-        vad.reset()
+        # Create a fresh VAD per call — not thread-safe if shared
+        vad = sherpa_onnx.VoiceActivityDetector(self._vad_config, buffer_size_in_seconds=30)
 
         samples, sr = sf.read(str(audio_path), dtype="float32")
         if len(samples.shape) > 1:
