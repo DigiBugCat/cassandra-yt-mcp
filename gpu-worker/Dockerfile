@@ -27,7 +27,7 @@ RUN cargo build --release
 # ── Stage 2: Download + convert models ──
 FROM python:3.12-slim AS models
 
-RUN pip install --no-cache-dir huggingface-hub onnxruntime
+RUN pip install --no-cache-dir huggingface-hub onnx numpy
 
 # TDT model — download FP32, convert encoder to FP16 for 2x Tensor Core throughput
 RUN python -c "\
