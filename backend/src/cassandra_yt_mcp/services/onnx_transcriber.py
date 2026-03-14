@@ -283,9 +283,12 @@ class OnnxTranscriber:
         vad = self._vad
         vad.reset()
 
+        # Convert to list once — sherpa-onnx C++ bindings don't handle numpy slices well
+        samples_list = samples.tolist()
+
         idx = 0
-        while idx + window_size <= len(samples):
-            vad.accept_waveform(samples[idx : idx + window_size])
+        while idx + window_size <= len(samples_list):
+            vad.accept_waveform(samples_list[idx : idx + window_size])
             idx += window_size
 
         # Flush remaining samples
