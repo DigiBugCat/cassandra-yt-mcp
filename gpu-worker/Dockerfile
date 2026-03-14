@@ -24,15 +24,25 @@ ENV ORT_LIB_LOCATION="/opt/ort/lib" \
     ORT_PREFER_DYNAMIC_LINK=1
 RUN cargo build --release
 
-# ── Stage 2: Download models ──
+# ── Stage 2: Download + convert models ──
 FROM python:3.12-slim AS models
 
-RUN pip install --no-cache-dir huggingface-hub
+RUN pip install --no-cache-dir huggingface-hub onnx onnxconverter-common
 
-# TDT model (encoder + decoder_joint + vocab)
+# TDT model — download FP32, convert encoder to FP16 for 2x Tensor Core throughput
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
 snapshot_download('istupakov/parakeet-tdt-0.6b-v3-onnx', local_dir='/models/tdt')"
+
+# Convert encoder to FP16 (the big model — 600M params).
+# Keep decoder_joint as FP32 — it's tiny and FP16 can cause accuracy issues in beam search.
+RUN python -c "\
+import onnx; \
+from onnxconverter_common import float16; \
+model = onnx.load('/models/tdt/encoder-model.onnx', load_external_data=True); \
+model_fp16 = float16.convert_float_to_float16(model, keep_io_types=True); \
+onnx.save(model_fp16, '/models/tdt/encoder-model.onnx'); \
+print('Encoder converted to FP16')"
 
 # Sortformer v2.1 diarization model
 RUN python -c "\
