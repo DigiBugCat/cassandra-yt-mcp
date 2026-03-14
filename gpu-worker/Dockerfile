@@ -32,9 +32,11 @@ RUN pip install --no-cache-dir huggingface-hub
 # TDT model — INT8 quantized encoder + decoder for faster inference
 RUN python -c "\
 from huggingface_hub import hf_hub_download; \
-repo = 'istupakov/parakeet-tdt-0.6b-v3-onnx'; \
-for f in ['encoder-model.int8.onnx', 'decoder_joint-model.int8.onnx', 'vocab.txt', 'config.json']: \
-    hf_hub_download(repo, f, local_dir='/models/tdt'); \
+r='istupakov/parakeet-tdt-0.6b-v3-onnx'; d='/models/tdt'; \
+hf_hub_download(r,'encoder-model.int8.onnx',local_dir=d); \
+hf_hub_download(r,'decoder_joint-model.int8.onnx',local_dir=d); \
+hf_hub_download(r,'vocab.txt',local_dir=d); \
+hf_hub_download(r,'config.json',local_dir=d); \
 print('TDT INT8 models cached')"
 
 # Sortformer v2.1 diarization model
