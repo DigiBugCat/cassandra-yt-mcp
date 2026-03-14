@@ -18,10 +18,11 @@ class Downloader:
         job_dir.mkdir(parents=True, exist_ok=True)
         output_template = str(job_dir / "%(id)s.%(ext)s")
 
-        # Try preferred audio format first, fall back to any format + convert
+        # Worst audio is fine — Parakeet resamples to 16kHz mono anyway.
+        # Saves bandwidth and download time (48kbps vs 256kbps).
         format_attempts = [
-            ["-f", "bestaudio/bestaudio*,best", "-x"],
-            ["-f", "best", "-x"],
+            ["-f", "worstaudio/worstaudio*", "-x"],
+            ["-f", "worst", "-x"],
             ["-x"],  # no format selector — let yt-dlp pick whatever's available
         ]
 
