@@ -8,6 +8,8 @@ steps:
     image: python:3.12-slim
     when:
       - event: [push, pull_request]
+        path:
+          include: ['backend/**']
     commands:
       - cd backend
       - pip install -e ".[dev]"
@@ -17,6 +19,8 @@ steps:
     image: node:22-slim
     when:
       - event: [push, pull_request]
+        path:
+          include: ['worker/**']
     commands:
       - cd worker
       - npm install
