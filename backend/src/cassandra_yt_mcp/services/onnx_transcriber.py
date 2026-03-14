@@ -267,26 +267,20 @@ class OnnxTranscriber:
 
         t_start = time.monotonic()
 
-        # Stream audio through VAD in fixed-size read chunks to avoid
-        # loading the entire file into memory (3hr @ 16kHz = ~691MB).
-        read_chunk = 16000 * 10  # 10 seconds at a time
-        window_size = 512  # Silero VAD window
+        window_size = 512  # Silero VAD expects 512 samples at 16kHz
         vad = self._vad
         vad.reset()
 
-        with sf.SoundFile(str(audio_path)) as f:
-            sr = f.samplerate
-            while True:
-                chunk = f.read(read_chunk, dtype="float32")
-                if len(chunk) == 0:
-                    break
-                if len(chunk.shape) > 1:
-                    chunk = chunk[:, 0]
-                # Feed VAD in 512-sample windows
-                idx = 0
-                while idx + window_size <= len(chunk):
-                    vad.accept_waveform(chunk[idx : idx + window_size].tolist())
-                    idx += window_size
+        # Read entire file — mono 16kHz float32 is ~11MB/min, manageable
+        samples, sr = sf.read(str(audio_path), dtype="float32")
+        if len(samples.shape) > 1:
+            samples = samples[:, 0]
+        logger.info("Read %d samples (%.0fs), feeding VAD", len(samples), len(samples) / _SAMPLE_RATE)
+
+        # Feed VAD in 512-sample windows
+        for idx in range(0, len(samples) - window_size + 1, window_size):
+            vad.accept_waveform(samples[idx : idx + window_size].tolist())
+        del samples
 
         vad.flush()
 
