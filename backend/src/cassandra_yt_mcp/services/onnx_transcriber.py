@@ -296,12 +296,17 @@ class OnnxTranscriber:
         segment_offsets: list[float] = []
         segment_durations: list[float] = []
 
+        # Max samples per accept_waveform call — C++ std::vector has size limits
+        max_chunk = 160000  # 10 seconds at 16kHz
+
         while not vad.empty():
             seg = vad.front()
             seg_start_secs = seg.start / _SAMPLE_RATE
             seg_samples = seg.samples  # already a list of floats
             s = self._recognizer.create_stream()
-            s.accept_waveform(_SAMPLE_RATE, seg_samples)
+            # Feed in chunks to avoid C++ vector size limits
+            for i in range(0, len(seg_samples), max_chunk):
+                s.accept_waveform(_SAMPLE_RATE, seg_samples[i : i + max_chunk])
             streams.append(s)
             segment_offsets.append(seg_start_secs + offset_secs)
             segment_durations.append(len(seg_samples) / _SAMPLE_RATE)
