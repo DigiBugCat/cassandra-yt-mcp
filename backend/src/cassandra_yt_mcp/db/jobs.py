@@ -163,14 +163,20 @@ class JobsRepository:
             if next_attempt < MAX_ATTEMPTS:
                 retries_total.inc()
                 delay = min(_BASE_RETRY_DELAY_SECONDS * (2**attempt), _MAX_RETRY_DELAY_SECONDS)
+                # If audio was already downloaded, go back to 'downloaded' not 'queued'
+                # to avoid re-downloading from YouTube on every transcription retry
+                row = self.db.conn.execute(
+                    "SELECT audio_path FROM jobs WHERE id = ?", (job_id,),
+                ).fetchone()
+                retry_status = "downloaded" if row and row[0] else "queued"
                 self.db.conn.execute(
                     """
                     UPDATE jobs
-                    SET status = 'queued', started_at = NULL, attempt = ?,
+                    SET status = ?, started_at = NULL, attempt = ?,
                         retry_after = datetime('now', ? || ' seconds'), error = ?
                     WHERE id = ?
                     """,
-                    (next_attempt, str(delay), error[:2000], job_id),
+                    (retry_status, next_attempt, str(delay), error[:2000], job_id),
                 )
             else:
                 self.db.conn.execute(
