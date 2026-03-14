@@ -83,12 +83,10 @@ class OnnxTranscriber:
         logger.info("Silero VAD loaded")
 
         logger.info("Loading ONNX diarization models")
-        diar_providers: list[str] = (
-            ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            if self._use_gpu
-            else ["CPUExecutionProvider"]
-        )
-        self._diarization = OnnxDiarization(providers=diar_providers)
+        # Diarization uses standalone onnxruntime (CPU-only) to avoid conflicts
+        # with sherpa-onnx's bundled CUDA runtime. Diarization is lightweight
+        # enough that CPU is fine (~4s for 2 min audio).
+        self._diarization = OnnxDiarization(providers=["CPUExecutionProvider"])
         logger.info("ONNX diarization models loaded")
 
     @property
