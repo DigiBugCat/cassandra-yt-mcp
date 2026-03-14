@@ -36,12 +36,13 @@ snapshot_download('istupakov/parakeet-tdt-0.6b-v3-onnx', local_dir='/models/tdt'
 
 # Convert encoder to FP16 (the big model — 600M params).
 # Keep decoder_joint as FP32 — it's tiny and FP16 can cause accuracy issues in beam search.
+# Model is >2GB so must save with external data to avoid protobuf size limit.
 RUN python -c "\
 import onnx; \
 from onnxconverter_common import float16; \
 model = onnx.load('/models/tdt/encoder-model.onnx', load_external_data=True); \
 model_fp16 = float16.convert_float_to_float16(model, keep_io_types=True); \
-onnx.save(model_fp16, '/models/tdt/encoder-model.onnx'); \
+onnx.save(model_fp16, '/models/tdt/encoder-model.onnx', save_as_external_data=True, all_tensors_to_one_file=True, location='encoder-model.onnx_data'); \
 print('Encoder converted to FP16')"
 
 # Sortformer v2.1 diarization model
