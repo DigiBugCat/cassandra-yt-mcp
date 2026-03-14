@@ -62,30 +62,6 @@ steps:
         --cache=false
         --insecure-registry=172.20.0.161:30500
 
-  - name: build-worker
-    image: gcr.io/kaniko-project/executor:debug
-    when:
-      - event: push
-        branch: main
-        path:
-          include: ['backend/Dockerfile', 'backend/pyproject.toml']
-    environment:
-      HUGGINGFACE_TOKEN:
-        from_secret: huggingface_token
-    commands:
-      - >
-        /kaniko/executor
-        --dockerfile=backend/Dockerfile
-        --context=backend
-        --build-arg=YTDLP_CHANNEL=stable
-        --build-arg=HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
-        --destination=172.20.0.161:30500/cassandra-yt-mcp/backend:latest
-        --destination=172.20.0.161:30500/cassandra-yt-mcp/backend:${CI_COMMIT_SHA:0:7}
-        --insecure
-        --cache=true
-        --cache-repo=172.20.0.161:30500/cassandra-yt-mcp/backend-cache
-        --insecure-registry=172.20.0.161:30500
-
   - name: build-worker-onnx
     image: gcr.io/kaniko-project/executor:debug
     when:
