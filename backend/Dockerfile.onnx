@@ -19,7 +19,7 @@ ENV PATH="/opt/venv/bin:${PATH}"
 # Install TensorRT + ONNX runtime + ASR + diarization deps (no torch!)
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir \
-      tensorrt-cu12 \
+      tensorrt-cu12 tensorrt-libs-cu12 \
       "onnx-asr[gpu,hub]" \
       soundfile \
       scipy \
