@@ -124,15 +124,8 @@ class OnnxTranscriber:
         try:
             mono_info = sf.info(str(mono_path))
             duration_secs = mono_info.frames / mono_info.samplerate
-
-            if duration_secs <= _CHUNK_SECONDS + _OVERLAP_SECONDS:
-                return self._process_single(mono_path)
-            else:
-                logger.info(
-                    "Audio is %.0fs — splitting into %ds chunks",
-                    duration_secs, _CHUNK_SECONDS,
-                )
-                return self._process_chunked(mono_path, duration_secs)
+            logger.info("Processing %.0fs audio in single pass", duration_secs)
+            return self._process_single(mono_path)
         finally:
             if cleanup_mono:
                 mono_path.unlink(missing_ok=True)
