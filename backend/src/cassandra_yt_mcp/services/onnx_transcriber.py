@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gc
 import logging
+import subprocess
 import unicodedata
 from pathlib import Path
 
@@ -66,18 +67,48 @@ class OnnxTranscriber:
     def model_loaded(self) -> bool:
         return self._asr_model is not None
 
+    @staticmethod
+    def _to_wav(audio_path: Path) -> Path:
+        """Convert any audio format to mono 16kHz WAV via ffmpeg.
+
+        soundfile only supports WAV/FLAC/OGG — YouTube downloads are typically m4a/webm.
+        """
+        wav_path = audio_path.with_suffix(".wav")
+        if audio_path.suffix.lower() in (".wav",):
+            return audio_path
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", str(audio_path),
+                "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
+                str(wav_path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        return wav_path
+
     def transcribe(self, audio_path: Path) -> TranscriptResult:
         self._load_models()
 
+        # Convert to WAV first (m4a/webm not supported by soundfile)
+        wav_path = self._to_wav(audio_path)
+        cleanup_wav = wav_path != audio_path
+
+        try:
+            return self._transcribe_wav(wav_path)
+        finally:
+            if cleanup_wav:
+                wav_path.unlink(missing_ok=True)
+
+    def _transcribe_wav(self, wav_path: Path) -> TranscriptResult:
         # Load and ensure mono 16kHz
-        waveform, sr = sf.read(str(audio_path), dtype="float32", always_2d=True)
+        waveform, sr = sf.read(str(wav_path), dtype="float32", always_2d=True)
         if waveform.shape[1] > 1:
             waveform = waveform.mean(axis=1)
         else:
             waveform = waveform[:, 0]
 
         if sr != 16000:
-            # Resample using scipy
             from scipy.signal import resample as scipy_resample  # noqa: PLC0415
 
             num_samples = int(len(waveform) * 16000 / sr)
@@ -85,7 +116,7 @@ class OnnxTranscriber:
             sr = 16000
 
         # Write mono 16kHz WAV for onnx-asr (it reads files)
-        mono_path = audio_path.with_suffix(".mono.wav")
+        mono_path = wav_path.with_suffix(".mono.wav")
         sf.write(str(mono_path), waveform, sr)
 
         try:
