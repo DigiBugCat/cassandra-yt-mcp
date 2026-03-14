@@ -71,9 +71,9 @@ class LocalTranscriber:
                 model = nemo_asr.models.ASRModel.from_pretrained(
                     model_name=_PARAKEET_MODEL, map_location=self._device,
                 )
-                # fp16 halves CPU RAM for weights and speeds up inference
+                # bfloat16 reduces VRAM and speeds up inference on modern GPUs
                 if self._device != "cpu":
-                    model = model.to(dtype=torch.float16)
+                    model = model.to(dtype=torch.bfloat16)
             model.change_attention_model(
                 self_attention_model="rel_pos_local_attn",
                 att_context_size=[256, 256],
