@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use axum::extract::{Multipart, State};
+use axum::extract::{DefaultBodyLimit, Multipart, State};
 use axum::http::StatusCode;
 use axum::response::Json;
 use axum::routing::{get, post};
@@ -243,6 +243,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/worker/healthz", get(healthz))
         .route("/worker/transcribe", post(transcribe))
+        .layer(DefaultBodyLimit::max(512 * 1024 * 1024)) // 512MB for large audio files
         .with_state(state);
 
     let addr = format!("0.0.0.0:{port}");
