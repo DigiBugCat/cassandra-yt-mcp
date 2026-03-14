@@ -52,8 +52,9 @@ RUN groupadd -g 1001 app && useradd -u 1001 -g app -s /bin/bash -m app
 COPY --from=builder /build/target/release/yt-mcp-gpu-worker /usr/local/bin/yt-mcp-gpu-worker
 
 # Copy ONNX Runtime GPU shared libs (main lib + CUDA/TensorRT providers)
-COPY --from=builder /opt/ort/lib/ /usr/local/lib/ort/
-RUN ldconfig /usr/local/lib/ort
+# Use cp instead of COPY to preserve symlinks
+COPY --from=builder /opt/ort/lib/ /tmp/ort-lib/
+RUN cp -a /tmp/ort-lib/*.so* /usr/local/lib/ && rm -rf /tmp/ort-lib && ldconfig
 
 # Copy models
 COPY --from=models /models /models
