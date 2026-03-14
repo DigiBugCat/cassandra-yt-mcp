@@ -18,6 +18,7 @@ RUN curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24
 WORKDIR /build
 COPY Cargo.toml ./
 COPY src ./src
+COPY parakeet-rs ./parakeet-rs
 
 # Tell ort-sys to dynamically link against our pre-downloaded CUDA-enabled ORT
 ENV ORT_LIB_LOCATION="/opt/ort/lib" \

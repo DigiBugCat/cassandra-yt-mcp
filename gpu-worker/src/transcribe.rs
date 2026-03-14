@@ -6,9 +6,9 @@ use parakeet_rs::sortformer::{DiarizationConfig, Sortformer, SpeakerSegment};
 use parakeet_rs::{ExecutionConfig, ExecutionProvider, ParakeetTDT, TimestampMode, Transcriber};
 use tracing::info;
 
-/// Max seconds per TDT chunk — TDT fails on sequences longer than ~8-10 min.
-/// 8 min is safe; leaves headroom before the ~10 min hard limit.
-const MAX_CHUNK_SECS: f32 = 480.0;
+/// Max seconds per TDT chunk — TDT fails on sequences longer than ~10 min.
+/// 9.5 min pushes close to the limit for fewer chunks on long podcasts.
+const MAX_CHUNK_SECS: f32 = 570.0;
 
 const SAMPLE_RATE: u32 = 16000;
 
