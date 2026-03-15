@@ -108,13 +108,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> dict[str, object]:
         transcript = runtime.transcripts.get_by_video_id(video_id)
         if transcript is None:
-            url = f"https://www.youtube.com/watch?v={video_id}"
-            transcription = runtime.enqueue_transcription(url)
-            return {
-                "auto_transcribe": True,
-                "video_id": video_id,
-                "transcription": transcription,
-            }
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No transcript found for video_id '{video_id}'. Use the transcribe tool with the full URL instead.",
+            )
 
         warnings = _transcript_warnings(transcript)
         base = Path(str(transcript["path"]))

@@ -98,10 +98,11 @@ class Downloader:
                 data = json.loads(line)
                 if isinstance(data, dict):
                     video_id = data.get("id", "")
+                    entry_url = data.get("url") or data.get("webpage_url", "")
                     entries.append({
                         "id": video_id,
                         "title": data.get("title", ""),
-                        "url": data.get("url") or f"https://www.youtube.com/watch?v={video_id}",
+                        "url": entry_url,
                     })
             except json.JSONDecodeError:
                 continue

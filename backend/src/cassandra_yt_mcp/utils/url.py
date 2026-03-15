@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 _YT_HOSTNAMES = frozenset({"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"})
@@ -54,6 +55,29 @@ def is_playlist_url(url: str) -> bool:
     if "list" in params and "v" in params:
         return True
     return False
+
+
+def extract_video_id(url: str) -> str | None:
+    """Extract a video ID from a URL. Returns YouTube video ID for YouTube URLs,
+    or None for other platforms (yt-dlp will provide the ID from metadata)."""
+    return extract_youtube_video_id(url)
+
+
+def is_youtube_url(url: str) -> bool:
+    """Check if a URL is a YouTube URL."""
+    parsed = urlparse(url.strip())
+    if not parsed.scheme:
+        parsed = urlparse(f"https://{url.strip()}")
+    netloc = parsed.netloc.lower()
+    if netloc.startswith("www."):
+        netloc = netloc[4:]
+    return netloc in _YT_HOSTNAMES
+
+
+def url_based_video_id(url: str) -> str:
+    """Generate a stable short ID from a URL for non-YouTube platforms."""
+    normalized = normalize_url(url)
+    return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
 
 def normalize_url(url: str) -> str:

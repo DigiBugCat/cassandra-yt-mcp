@@ -1,6 +1,13 @@
 import pytest
 
-from cassandra_yt_mcp.utils.url import extract_youtube_video_id, is_playlist_url, normalize_url
+from cassandra_yt_mcp.utils.url import (
+    extract_video_id,
+    extract_youtube_video_id,
+    is_playlist_url,
+    is_youtube_url,
+    normalize_url,
+    url_based_video_id,
+)
 
 
 @pytest.mark.parametrize(
@@ -53,3 +60,29 @@ def test_is_playlist_url_true(url: str) -> None:
 )
 def test_is_playlist_url_false(url: str) -> None:
     assert is_playlist_url(url) is False
+
+
+def test_extract_video_id_youtube() -> None:
+    assert extract_video_id("https://youtube.com/watch?v=abc123") == "abc123"
+
+
+def test_extract_video_id_non_youtube() -> None:
+    assert extract_video_id("https://www.twitch.tv/videos/12345") is None
+
+
+def test_is_youtube_url() -> None:
+    assert is_youtube_url("https://youtube.com/watch?v=abc123") is True
+    assert is_youtube_url("https://www.twitch.tv/videos/12345") is False
+    assert is_youtube_url("https://twitter.com/user/status/123") is False
+
+
+def test_url_based_video_id_stable() -> None:
+    url = "https://www.twitch.tv/videos/12345"
+    id1 = url_based_video_id(url)
+    id2 = url_based_video_id(url)
+    assert id1 == id2
+    assert len(id1) == 16
+
+
+def test_normalize_non_youtube() -> None:
+    assert normalize_url("https://www.twitch.tv/videos/12345") == "https://twitch.tv/videos/12345"

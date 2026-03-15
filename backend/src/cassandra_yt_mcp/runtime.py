@@ -34,7 +34,7 @@ from cassandra_yt_mcp.services.storage import StorageService
 from cassandra_yt_mcp.services.transcriber import AssemblyAITranscriber
 from cassandra_yt_mcp.services.watch_later import WatchLaterService
 from cassandra_yt_mcp.services.youtube_info import YouTubeInfoService
-from cassandra_yt_mcp.utils.url import extract_youtube_video_id, is_playlist_url, normalize_url
+from cassandra_yt_mcp.utils.url import extract_video_id, is_playlist_url, normalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -657,7 +657,7 @@ class AppRuntime:
         normalized_url = normalize_url(url)
         existing = self.transcripts.get_by_normalized_url(normalized_url)
         if existing is None:
-            video_id = extract_youtube_video_id(normalized_url)
+            video_id = extract_video_id(normalized_url)
             if video_id:
                 existing = self.transcripts.get_by_video_id(video_id)
         if existing is not None:
@@ -681,7 +681,7 @@ class AppRuntime:
         try:
             result["metadata"] = self.youtube_info.get_metadata(url)
         except Exception:  # noqa: BLE001
-            logger.debug("Could not fetch metadata for %s at enqueue time", url)
+            logger.debug("Could not fetch pre-enqueue metadata for %s", url)
         return result
 
     def _enqueue_playlist(self, url: str, cookies_b64: str | None = None) -> dict[str, object]:

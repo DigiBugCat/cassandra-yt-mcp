@@ -7,15 +7,20 @@ export function registerMcpTools(server: McpServer, env: Env, auth: ResolvedAuth
   server.registerTool(
     "transcribe",
     {
-      description: "Queue a video for transcription. Supports single videos and playlist URLs (all videos in the playlist will be queued).",
+      description: "Queue a video for transcription. Supports any yt-dlp-compatible URL (YouTube, Twitch VODs/clips, Twitter/X, and 1000+ other sites). Also supports YouTube playlist URLs.",
       annotations: { readOnlyHint: false, idempotentHint: true },
-      inputSchema: { url: z.string().describe("The video URL to transcribe (YouTube, etc.)") },
+      inputSchema: { url: z.string().describe("The video URL to transcribe (YouTube, Twitch, Twitter/X, etc.)") },
     },
     async ({ url }) => {
       const body: Record<string, unknown> = { url: String(url) };
-      const cookies = auth.credentials?.youtube_cookies;
-      if (cookies) {
-        body.cookies_b64 = cookies;
+      // Only attach YouTube cookies for YouTube URLs to avoid leaking cookies to other extractors
+      const urlLower = String(url).toLowerCase();
+      const isYouTube = ["youtube.com", "youtu.be"].some((h) => urlLower.includes(h));
+      if (isYouTube) {
+        const cookies = auth.credentials?.youtube_cookies;
+        if (cookies) {
+          body.cookies_b64 = cookies;
+        }
       }
       return jsonToolResponse(
         (await backendPost(env, "/api/jobs/transcribe", body)) as Record<string, unknown>,
@@ -121,9 +126,9 @@ export function registerMcpTools(server: McpServer, env: Env, auth: ResolvedAuth
   server.registerTool(
     "get_metadata",
     {
-      description: "Get full metadata for a video.",
+      description: "Get full metadata for a video (works with any yt-dlp-supported URL).",
       annotations: { readOnlyHint: true },
-      inputSchema: { url: z.string().describe("The video URL (YouTube, etc.)") },
+      inputSchema: { url: z.string().describe("The video URL (YouTube, Twitch, Twitter/X, etc.)") },
     },
     async ({ url }) =>
       jsonToolResponse(
@@ -134,10 +139,10 @@ export function registerMcpTools(server: McpServer, env: Env, auth: ResolvedAuth
   server.registerTool(
     "get_comments",
     {
-      description: "Get comments for a video.",
+      description: "Get comments for a video. Comment sorting/limits are optimized for YouTube; other platforms return all available comments.",
       annotations: { readOnlyHint: true },
       inputSchema: {
-        url: z.string().describe("The video URL (YouTube, etc.)"),
+        url: z.string().describe("The video URL (YouTube, Twitch, etc.)"),
         limit: z.number().int().min(1).max(100).default(20),
         sort: z.enum(["top", "new"]).default("top"),
       },

@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from cassandra_yt_mcp.utils.url import is_youtube_url
+
 
 class YouTubeInfoService:
     def __init__(self, *, cookies_file: Path | None = None) -> None:
@@ -82,20 +84,18 @@ class YouTubeInfoService:
         return {key: raw[key] for key in self._METADATA_KEYS if key in raw}
 
     def get_comments(self, url: str, limit: int = 20, sort: str = "top") -> list[dict[str, Any]]:
-        completed = self._run_ytdlp(
-            [
-                "yt-dlp",
-                "--dump-json",
-                "--no-warnings",
-                "--skip-download",
-                "--no-playlist",
-                "--write-comments",
-                "--extractor-args",
-                f"youtube:comment_sort={sort};max_comments={limit},all,all",
-                url,
-            ],
-            timeout=120,
-        )
+        cmd = [
+            "yt-dlp",
+            "--dump-json",
+            "--no-warnings",
+            "--skip-download",
+            "--no-playlist",
+            "--write-comments",
+        ]
+        if is_youtube_url(url):
+            cmd.extend(["--extractor-args", f"youtube:comment_sort={sort};max_comments={limit},all,all"])
+        cmd.append(url)
+        completed = self._run_ytdlp(cmd, timeout=120)
         data = json.loads(completed.stdout)
         comments: list[dict[str, Any]] = []
         for item in data.get("comments") or []:
