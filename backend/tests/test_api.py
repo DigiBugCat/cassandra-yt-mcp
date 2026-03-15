@@ -25,8 +25,6 @@ def make_settings(tmp_path: Path) -> Settings:
         worker_port=3001,
         download_concurrency=2,
         downloader_port=3002,
-        ytdlp_cookies=None,
-        ytdlp_cookies_file=None,
         transcription_engine="nemo",
     )
 
@@ -101,19 +99,15 @@ def test_read_transcript_route(tmp_path: Path) -> None:
         assert response.json()["video_id"] == "vid1"
 
 
-def test_read_transcript_auto_transcribes_when_not_found(tmp_path: Path) -> None:
+def test_read_transcript_returns_404_when_not_found(tmp_path: Path) -> None:
     with TestClient(create_app(make_settings(tmp_path))) as client:
         response = client.get(
             "/api/transcripts/missing-video",
             headers={"Authorization": "Bearer secret-token"},
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["auto_transcribe"] is True
-        assert data["video_id"] == "missing-video"
-        assert "transcription" in data
-        assert data["transcription"]["status"] == "queued"
+        assert response.status_code == 404
+        assert "Use the transcribe tool" in response.json()["detail"]
 
 
 def test_read_transcript_route_paginates_text_and_json_with_warnings(tmp_path: Path) -> None:

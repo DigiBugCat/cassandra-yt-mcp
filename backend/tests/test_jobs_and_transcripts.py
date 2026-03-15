@@ -24,8 +24,6 @@ def make_settings(tmp_path: Path) -> Settings:
         worker_port=3001,
         download_concurrency=2,
         downloader_port=3002,
-        ytdlp_cookies=None,
-        ytdlp_cookies_file=None,
         transcription_engine="nemo",
     )
 

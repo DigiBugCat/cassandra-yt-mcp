@@ -26,7 +26,7 @@ def test_expand_playlist_parses_entries(tmp_path: Path) -> None:
     assert len(entries) == 3
     assert entries[0]["id"] == "vid1"
     assert entries[0]["url"] == "https://www.youtube.com/watch?v=vid1"
-    assert entries[2]["url"] == "https://www.youtube.com/watch?v=vid3"  # fallback URL
+    assert entries[2]["url"] == ""  # no URL or webpage_url in metadata
 
 
 def test_expand_playlist_raises_on_empty(tmp_path: Path) -> None:

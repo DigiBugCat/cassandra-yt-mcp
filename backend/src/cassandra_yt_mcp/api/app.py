@@ -158,6 +158,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return {"error": "search_failed", "message": str(exc)}
         return {"query": query, "count": len(results), "results": results}
 
+    @app.get("/api/youtube/channel", dependencies=[Depends(require_api_token)])
+    def list_channel_videos(
+        url: str,
+        runtime: AppRuntime = Depends(get_runtime),
+        tab: str = Query(default="shorts", pattern="^(shorts|videos|streams)$"),
+        limit: int = Query(default=20, ge=1, le=50),
+    ) -> dict[str, object]:
+        try:
+            results = runtime.youtube_info.list_channel_videos(channel_url=url, limit=limit, tab=tab)
+        except RuntimeError as exc:
+            return {"error": "channel_list_failed", "message": str(exc)}
+        return {"url": url, "tab": tab, "count": len(results), "results": results}
+
     @app.get("/api/youtube/metadata", dependencies=[Depends(require_api_token)])
     def get_metadata(url: str, runtime: AppRuntime = Depends(get_runtime)) -> dict[str, object]:
         try:

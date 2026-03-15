@@ -124,6 +124,28 @@ export function registerMcpTools(server: McpServer, env: Env, auth: ResolvedAuth
   );
 
   server.registerTool(
+    "list_channel_videos",
+    {
+      description:
+        "List videos from a YouTube channel. Use tab parameter to browse shorts, videos, or streams.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        url: z.string().describe("The channel URL (e.g. https://www.youtube.com/channel/UC... or https://www.youtube.com/@handle)"),
+        tab: z.enum(["shorts", "videos", "streams"]).default("videos").describe("Which tab to list"),
+        limit: z.number().int().min(1).max(50).default(20),
+      },
+    },
+    async ({ url, tab, limit }) =>
+      jsonToolResponse(
+        (await backendGet(env, "/api/youtube/channel", {
+          url: String(url),
+          tab: tab as string,
+          limit: limit as number,
+        })) as Record<string, unknown>,
+      ),
+  );
+
+  server.registerTool(
     "get_metadata",
     {
       description: "Get full metadata for a video (works with any yt-dlp-supported URL).",

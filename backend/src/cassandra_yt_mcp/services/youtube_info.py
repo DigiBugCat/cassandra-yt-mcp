@@ -76,6 +76,44 @@ class YouTubeInfoService:
             )
         return results
 
+    def list_channel_videos(self, channel_url: str, limit: int = 20, tab: str = "shorts") -> list[dict[str, Any]]:
+        """List videos from a channel URL. Tab can be 'shorts', 'videos', or 'streams'."""
+        url = channel_url.rstrip("/")
+        if not url.endswith(f"/{tab}"):
+            url = f"{url}/{tab}"
+        completed = self._run_ytdlp(
+            [
+                "yt-dlp",
+                "--flat-playlist",
+                "--dump-json",
+                "--no-download",
+                "--no-warnings",
+                "--playlist-end",
+                str(limit),
+                url,
+            ],
+            timeout=60,
+        )
+        results: list[dict[str, Any]] = []
+        for line in completed.stdout.strip().splitlines():
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(data, dict):
+                continue
+            video_id = data.get("id", "")
+            results.append({
+                "video_id": video_id,
+                "title": data.get("title", ""),
+                "url": data.get("url") or f"https://www.youtube.com/watch?v={video_id}",
+                "duration": _safe_int(str(data.get("duration", ""))) if data.get("duration") else None,
+                "view_count": _safe_int(str(data.get("view_count", ""))) if data.get("view_count") else None,
+            })
+        return results
+
     def get_metadata(self, url: str) -> dict[str, Any]:
         completed = self._run_ytdlp(
             ["yt-dlp", "--dump-json", "--no-warnings", "--no-download", "--no-playlist", url]
