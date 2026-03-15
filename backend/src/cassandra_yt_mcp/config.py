@@ -26,10 +26,10 @@ class Settings:
     downloader_port: int  # Port for downloader healthz (downloader mode)
     transcription_engine: str  # "onnx" | "nemo"
     # MCP server settings (role=mcp)
-    mcp_port: int
-    acl_url: str  # ACL service URL for key validation
-    acl_secret: str  # Shared secret for ACL service auth
-    acl_yaml_path: str  # Path to bundled acl.yaml for local enforcement
+    mcp_port: int = 3003
+    acl_url: str = ""  # ACL service URL for key validation
+    acl_secret: str = ""  # Shared secret for ACL service auth
+    acl_yaml_path: str = "/app/acl.yaml"  # Path to bundled acl.yaml for local enforcement
 
 
 def _as_int(name: str, default: int) -> int:
