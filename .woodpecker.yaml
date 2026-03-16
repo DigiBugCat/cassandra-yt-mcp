@@ -32,8 +32,8 @@ steps:
       - event: push
         branch: main
     environment:
-      ACL_YAML_CONTENT:
-        from_secret: acl_yaml
+      AUTH_YAML_CONTENT:
+        from_secret: auth_yaml
     commands:
       - >
         buildctl
@@ -44,7 +44,7 @@ steps:
         --local dockerfile=backend
         --opt filename=Dockerfile.coordinator
         --opt build-arg:YTDLP_CHANNEL=stable
-        --opt "build-arg:ACL_YAML_CONTENT=$ACL_YAML_CONTENT"
+        --opt "build-arg:AUTH_YAML_CONTENT=$AUTH_YAML_CONTENT"
         --output type=image,name=172.20.0.161:30500/cassandra-yt-mcp/coordinator:latest,push=true,registry.insecure=true
 
   - name: restart-coordinator
@@ -63,8 +63,8 @@ steps:
       - event: cron
         cron: ytdlp-update
     environment:
-      ACL_YAML_CONTENT:
-        from_secret: acl_yaml
+      AUTH_YAML_CONTENT:
+        from_secret: auth_yaml
     commands:
       - >
         buildctl
@@ -75,7 +75,7 @@ steps:
         --local dockerfile=backend
         --opt filename=Dockerfile.coordinator
         --opt build-arg:YTDLP_CHANNEL=stable
-        --opt "build-arg:ACL_YAML_CONTENT=$ACL_YAML_CONTENT"
+        --opt "build-arg:AUTH_YAML_CONTENT=$AUTH_YAML_CONTENT"
         --opt no-cache=
         --output type=image,name=172.20.0.161:30500/cassandra-yt-mcp/coordinator:latest,push=true,registry.insecure=true
 

@@ -27,9 +27,9 @@ class Settings:
     transcription_engine: str  # "onnx" | "nemo"
     # MCP server settings (role=mcp)
     mcp_port: int = 3003
-    acl_url: str = ""  # ACL service URL for key validation
-    acl_secret: str = ""  # Shared secret for ACL service auth
-    acl_yaml_path: str = "/app/acl.yaml"  # Path to bundled acl.yaml for local enforcement
+    auth_url: str = ""  # Auth service URL for key validation
+    auth_secret: str = ""  # Shared secret for auth service
+    auth_yaml_path: str = "/app/acl.yaml"  # Path to bundled acl.yaml for local enforcement
 
 
 def _as_int(name: str, default: int) -> int:
@@ -72,7 +72,7 @@ def load_settings() -> Settings:
         downloader_port=_as_int("DOWNLOADER_PORT", 3002),
         transcription_engine=os.getenv("TRANSCRIPTION_ENGINE", "onnx").lower(),
         mcp_port=_as_int("MCP_PORT", 3003),
-        acl_url=os.getenv("ACL_URL", "").strip(),
-        acl_secret=os.getenv("ACL_SECRET", "").strip(),
-        acl_yaml_path=os.getenv("ACL_YAML_PATH", "/app/acl.yaml"),
+        auth_url=os.getenv("AUTH_URL", "").strip(),
+        auth_secret=os.getenv("AUTH_SECRET", "").strip(),
+        auth_yaml_path=os.getenv("AUTH_YAML_PATH", "/app/acl.yaml"),
     )

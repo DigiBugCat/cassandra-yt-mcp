@@ -113,8 +113,8 @@ tofu apply
 - **Port**: 3003 (SSE transport)
 - **Role**: `mcp` (set via `ROLE=mcp` env var in `main.py`)
 - **Auth**: `McpKeyAuthProvider` validates `mcp_` API keys via ACL service `/keys/validate`
-- **ACL**: `Enforcer` loads baked-in `acl.yaml` (injected at Docker build time via `ACL_YAML_CONTENT` build arg)
-- **Secret**: `cassandra-yt-mcp-mcp` k8s secret (ACL_URL, ACL_SECRET)
+- **ACL**: `Enforcer` loads baked-in `acl.yaml` (injected at Docker build time via `AUTH_YAML_CONTENT` build arg)
+- **Secret**: `cassandra-yt-mcp-mcp` k8s secret (AUTH_URL, AUTH_SECRET)
 - **Tunnel**: `yt-mcp-mcp.cassandrasedge.com` → port 3003 (for testing; will cut over to `yt-mcp.cassandrasedge.com`)
 
 ## Observability

@@ -65,13 +65,13 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     """Create and configure the FastMCP server with all tools."""
 
     auth_provider = McpKeyAuthProvider(
-        acl_url=settings.acl_url,
-        acl_secret=settings.acl_secret,
+        acl_url=settings.auth_url,
+        acl_secret=settings.auth_secret,
         service_id=SERVICE_ID,
     )
 
     # Load ACL enforcer from bundled acl.yaml
-    acl_path = Path(settings.acl_yaml_path)
+    acl_path = Path(settings.auth_yaml_path)
     enforcer = load_enforcer(acl_path) if acl_path.exists() else None
 
     @asynccontextmanager
