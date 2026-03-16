@@ -18,8 +18,12 @@ steps:
     image: node:22-slim
     when:
       - event: [push, pull_request]
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
     commands:
       - apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+      - git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
       - cd worker
       - npm install
       - npm run type-check
@@ -111,6 +115,8 @@ steps:
       - event: push
         branch: main
     environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
       CLOUDFLARE_API_TOKEN:
         from_secret: cloudflare_api_token
       CLOUDFLARE_ACCOUNT_ID:
@@ -125,6 +131,7 @@ steps:
         from_secret: yt_mcp_worker_route_zone
     commands:
       - apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+      - git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
       - cd worker
       - npm install
       - |
