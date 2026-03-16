@@ -9,7 +9,7 @@ steps:
     when:
       - event: [push, pull_request]
     commands:
-      - apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+      - apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
       - cd backend
       - pip install -e ".[dev]"
       - pytest
@@ -22,13 +22,11 @@ steps:
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
-      - apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+      - apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
       - printf "machine github.com\nlogin x-access-token\npassword $GITHUB_TOKEN\n" > /root/.netrc && chmod 600 /root/.netrc
       - git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - git config --global url."https://github.com/".insteadOf "git@github.com:"
       - git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/"
-      - echo "HOME=$HOME" && cat ~/.gitconfig && wc -c /root/.netrc
-      - git ls-remote https://github.com/DigiBugCat/cassandra-auth.git HEAD
       - cd worker
       - npm install
       - npm run type-check
@@ -135,7 +133,7 @@ steps:
       WORKER_ROUTE_ZONE:
         from_secret: yt_mcp_worker_route_zone
     commands:
-      - apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+      - apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
       - printf "machine github.com\nlogin x-access-token\npassword $GITHUB_TOKEN\n" > /root/.netrc && chmod 600 /root/.netrc
       - git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - git config --global url."https://github.com/".insteadOf "git@github.com:"
