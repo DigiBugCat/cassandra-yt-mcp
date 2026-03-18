@@ -33,10 +33,18 @@ pub struct TranscribeEngine {
 
 impl TranscribeEngine {
     pub fn new(tdt_dir: &str, sortformer_path: &str) -> Result<Self> {
+        // TensorRT for TDT (INT8 model benefits from TRT kernel optimization)
+        // Falls back to CUDA EP if TRT compilation fails
+        let tdt_config = ExecutionConfig::new()
+            .with_execution_provider(ExecutionProvider::TensorRT);
         let cuda_config = ExecutionConfig::new()
             .with_execution_provider(ExecutionProvider::Cuda);
 
-        let tdt = ParakeetTDT::from_pretrained(tdt_dir, Some(cuda_config.clone()))
+        let tdt = ParakeetTDT::from_pretrained(tdt_dir, Some(tdt_config))
+            .or_else(|e| {
+                tracing::warn!("TensorRT failed for TDT, falling back to CUDA: {e}");
+                ParakeetTDT::from_pretrained(tdt_dir, Some(cuda_config.clone()))
+            })
             .wrap_err("failed to load TDT model")?;
 
         let sortformer = Sortformer::with_config(
