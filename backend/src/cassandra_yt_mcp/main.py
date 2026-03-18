@@ -72,6 +72,7 @@ def cli() -> None:
             port=settings.port,
             factory=True,
             reload=False,
+            h11_max_incomplete_event_size=256 * 1024,
         )
 
 
