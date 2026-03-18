@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import time
 from pathlib import Path
 
@@ -83,13 +84,18 @@ class RemoteTranscriber:
 
     def _send_to_worker(self, url: str, audio_path: Path) -> TranscriptResult:
         logger.info("Dispatching %s to worker %s", audio_path.name, url)
-        with audio_path.open("rb") as f:
-            resp = httpx.post(
-                f"{url}/worker/transcribe",
-                files={"audio": (audio_path.name, f, "application/octet-stream")},
-                timeout=_TRANSCRIBE_TIMEOUT,
-            )
-        resp.raise_for_status()
+        send_path = self._ensure_wav(audio_path)
+        try:
+            with send_path.open("rb") as f:
+                resp = httpx.post(
+                    f"{url}/worker/transcribe",
+                    files={"audio": (send_path.name, f, "application/octet-stream")},
+                    timeout=_TRANSCRIBE_TIMEOUT,
+                )
+            resp.raise_for_status()
+        finally:
+            if send_path != audio_path and send_path.exists():
+                send_path.unlink()
         data = resp.json()
 
         segments = [
@@ -106,3 +112,22 @@ class RemoteTranscriber:
             segments=segments,
             language=data.get("language"),
         )
+
+    @staticmethod
+    def _ensure_wav(audio_path: Path) -> Path:
+        """Convert audio to 16kHz mono WAV on the coordinator so the GPU worker skips ffmpeg."""
+        if audio_path.suffix == ".wav":
+            return audio_path
+        wav_path = audio_path.with_suffix(".16k.wav")
+        t0 = time.monotonic()
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(audio_path),
+             "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
+             str(wav_path)],
+            capture_output=True, timeout=300,
+        )
+        if result.returncode != 0:
+            logger.warning("ffmpeg conversion failed, sending original: %s", result.stderr[-200:])
+            return audio_path
+        logger.info("Converted %s → WAV in %.1fs", audio_path.name, time.monotonic() - t0)
+        return wav_path
