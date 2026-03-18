@@ -7,8 +7,10 @@ use parakeet_rs::{ExecutionConfig, ExecutionProvider, ParakeetTDT, TimestampMode
 use tracing::info;
 
 /// Max seconds per TDT chunk — TDT's attention window limits sequence length.
-/// 8 min is the sweet spot; 9.5 min causes attention shape broadcast errors.
-const MAX_CHUNK_SECS: f32 = 480.0;
+/// At 16kHz with hop=80, the model's 1001-frame attention window ≈ 5s of audio.
+/// Use 60s chunks — the ONNX runtime handles internal windowing for longer
+/// sequences, but 480s overflows the attention buffer. 60s is a safe ceiling.
+const MAX_CHUNK_SECS: f32 = 60.0;
 
 const SAMPLE_RATE: u32 = 16000;
 
