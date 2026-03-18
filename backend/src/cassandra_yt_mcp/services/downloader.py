@@ -53,12 +53,12 @@ class Downloader:
             try:
                 completed = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=600)
             except subprocess.TimeoutExpired:
-                # For live streams: timeout means we grabbed what was available — use it
-                logger.info("yt-dlp timed out (likely live stream), using partial download")
-                partial_files = sorted(job_dir.iterdir())
-                if partial_files:
-                    return DownloadResult(metadata={}, audio_path=str(partial_files[0]))
-                raise RuntimeError("yt-dlp timed out with no output")
+                # For live streams: timeout means we grabbed what was available
+                logger.info("yt-dlp timed out (likely live stream), merging fragments")
+                merged = self._merge_fragments(job_dir)
+                if merged:
+                    return DownloadResult(metadata={}, audio_path=str(merged))
+                raise RuntimeError("yt-dlp timed out with no usable output")
 
             if completed.returncode == 0:
                 break
@@ -136,6 +136,35 @@ class Downloader:
         if not entries:
             raise RuntimeError("No videos found in playlist")
         return entries
+
+    @staticmethod
+    def _merge_fragments(job_dir: Path) -> Path | None:
+        """Merge yt-dlp .part fragment files into a single audio file via ffmpeg."""
+        part_files = sorted(job_dir.glob("*.part"))
+        if not part_files:
+            return None
+
+        # Find the base .part file and its fragments
+        base = part_files[0]
+        frags = sorted(job_dir.glob(f"{base.name}-Frag*"), key=lambda p: int(p.stem.split("Frag")[-1]))
+        if not frags:
+            return None
+
+        # Concatenate fragments into the base .part file
+        merged_path = base.with_suffix(".m4a")
+        with merged_path.open("wb") as out:
+            for frag in frags:
+                out.write(frag.read_bytes())
+
+        logger.info("Merged %d fragments into %s (%.1fMB)", len(frags), merged_path.name,
+                     merged_path.stat().st_size / 1024 / 1024)
+
+        # Clean up fragments
+        for frag in frags:
+            frag.unlink()
+        base.unlink()
+
+        return merged_path
 
     @staticmethod
     def _parse_last_json_line(stdout: str) -> dict[str, object]:
