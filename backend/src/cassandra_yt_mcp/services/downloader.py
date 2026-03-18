@@ -40,6 +40,7 @@ class Downloader:
                 "--no-warnings",
                 "--concurrent-fragments",
                 "4",
+                "--live-from-start",
                 *fmt_args,
                 "-o",
                 output_template,
@@ -51,8 +52,13 @@ class Downloader:
 
             try:
                 completed = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=600)
-            except subprocess.TimeoutExpired as exc:
-                raise RuntimeError("yt-dlp timed out after 600 seconds") from exc
+            except subprocess.TimeoutExpired:
+                # For live streams: timeout means we grabbed what was available — use it
+                logger.info("yt-dlp timed out (likely live stream), using partial download")
+                partial_files = sorted(job_dir.iterdir())
+                if partial_files:
+                    return DownloadResult(metadata={}, audio_path=str(partial_files[0]))
+                raise RuntimeError("yt-dlp timed out with no output")
 
             if completed.returncode == 0:
                 break
