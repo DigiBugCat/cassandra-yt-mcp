@@ -15,6 +15,7 @@ def make_settings(tmp_path: Path) -> Settings:
         data_dir=tmp_path,
         database_path=tmp_path / "test.sqlite3",
         assemblyai_api_key=None,
+        deepgram_api_key=None,
         huggingface_token=None,
         max_workers=1,
         backend_api_token="secret-token",
