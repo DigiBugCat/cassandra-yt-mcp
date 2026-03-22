@@ -103,6 +103,22 @@ def to_markdown(result: TranscriptResult, metadata: dict[str, object] | None = N
     return "\n".join(lines).strip() + "\n"
 
 
+def to_compact(result: TranscriptResult) -> str:
+    """Token-efficient format for MCP: ``[MM:SS] SPEAKER: text`` one per line, no metadata."""
+    if not result.segments:
+        return (result.text or "").strip() + "\n"
+
+    lines: list[str] = []
+    for seg in result.segments:
+        ts = _format_timestamp(seg.start)
+        speaker = seg.speaker or "S"
+        # Shorten SPEAKER_XX → SXX
+        if speaker.startswith("SPEAKER_"):
+            speaker = "S" + speaker[8:]
+        lines.append(f"[{ts}] {speaker}: {seg.text}")
+    return "\n".join(lines).strip() + "\n"
+
+
 def to_plain_text(result: TranscriptResult) -> str:
     if not result.segments:
         return (result.text or "").strip() + "\n"
@@ -148,9 +164,11 @@ class StorageService:
         transcript_json_path = video_dir / "transcript.json"
         transcript_md_path = video_dir / "transcript.md"
         transcript_txt_path = video_dir / "transcript.txt"
+        transcript_compact_path = video_dir / "transcript.compact.txt"
         audio_dest_path = video_dir / f"audio{temp_audio_path.suffix}"
 
         metadata_path.write_text(json.dumps(metadata_with_url, indent=2, sort_keys=True), encoding="utf-8")
+        transcript_compact_path.write_text(to_compact(transcript), encoding="utf-8")
         transcript_json_path.write_text(
             json.dumps(
                 {

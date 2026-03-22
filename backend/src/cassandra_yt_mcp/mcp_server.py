@@ -182,11 +182,16 @@ def create_mcp_server(settings: Settings) -> FastMCP:
 
     # ── Tool: read_transcript ──
 
-    @mcp.tool(description="Read a transcript by video ID.")
+    @mcp.tool(
+        description=(
+            "Read a transcript by video ID. Formats: compact (default, token-efficient "
+            "``[MM:SS] S0: text``), markdown (full with metadata), text (plain), json (segments)."
+        ),
+    )
     def read_transcript(
         video_id: str,
         ctx: Context,
-        format: str = "markdown",
+        format: str = "compact",
         offset: int = 0,
         limit: int | None = None,
         token: AccessToken = CurrentAccessToken(),
@@ -206,6 +211,35 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         import json  # noqa: PLC0415
 
         base = Path(str(transcript["path"]))
+
+        if format == "compact":
+            compact_path = base / "transcript.compact.txt"
+            if compact_path.exists():
+                full = compact_path.read_text(encoding="utf-8")
+            else:
+                # Fallback: generate on the fly from JSON
+                payload = json.loads((base / "transcript.json").read_text(encoding="utf-8"))
+                from cassandra_yt_mcp.services.storage import to_compact  # noqa: PLC0415
+                from cassandra_yt_mcp.types import TranscriptResult as TR, TranscriptSegment as TS  # noqa: PLC0415
+
+                result = TR(
+                    text=payload.get("text", ""),
+                    segments=[
+                        TS(start=s["start"], end=s["end"], text=s.get("text", ""), speaker=s.get("speaker"))
+                        for s in payload.get("segments", [])
+                    ],
+                    language=payload.get("language"),
+                )
+                full = to_compact(result)
+            lines = full.splitlines(keepends=True)
+            page = lines[offset:] if limit is None else lines[offset : offset + limit]
+            return {
+                "video_id": video_id,
+                "content": "".join(page),
+                "total_lines": len(lines),
+                "offset": offset,
+            }
+
         if format in ("markdown", "text"):
             ext = "md" if format == "markdown" else "txt"
             full = (base / f"transcript.{ext}").read_text(encoding="utf-8")

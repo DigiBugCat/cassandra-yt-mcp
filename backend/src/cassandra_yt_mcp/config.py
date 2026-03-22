@@ -14,18 +14,11 @@ class Settings:
     poll_interval_seconds: int
     data_dir: Path
     database_path: Path
-    assemblyai_api_key: str | None
-    deepgram_api_key: str | None
-    huggingface_token: str | None
+    fluidaudio_url: str  # e.g. "http://172.20.1.179:8420"
     max_workers: int
     backend_api_token: str | None
-    enable_local_transcription: bool
-    role: str  # "standalone" | "coordinator" | "worker"
-    gpu_workers: list[str]  # URLs for remote GPU workers (coordinator mode)
-    worker_port: int  # Port for worker HTTP server (worker mode)
-    download_concurrency: int  # Number of concurrent downloads (downloader mode)
-    downloader_port: int  # Port for downloader healthz (downloader mode)
-    transcription_engine: str  # "onnx" | "nemo"
+    role: str  # "standalone" | "mcp"
+    download_concurrency: int
     # MCP server settings (role=mcp)
     mcp_port: int = 3003
     auth_url: str = ""  # Auth service URL for key validation
@@ -48,11 +41,12 @@ def load_settings() -> Settings:
     ).resolve()
 
     role = os.getenv("ROLE", "standalone").lower()
-    if role not in ("standalone", "coordinator", "worker", "downloader", "mcp"):
-        raise ValueError(f"ROLE must be standalone|coordinator|worker|downloader|mcp, got '{role}'")
+    if role not in ("standalone", "mcp"):
+        raise ValueError(f"ROLE must be standalone|mcp, got '{role}'")
 
-    gpu_workers_raw = os.getenv("GPU_WORKERS", "").strip()
-    gpu_workers = [u.strip() for u in gpu_workers_raw.split(",") if u.strip()] if gpu_workers_raw else []
+    fluidaudio_url = os.getenv("FLUIDAUDIO_URL", "").strip()
+    if not fluidaudio_url and role != "mcp":
+        raise ValueError("FLUIDAUDIO_URL is required")
 
     return Settings(
         host=os.getenv("HOST", "0.0.0.0"),
@@ -60,19 +54,11 @@ def load_settings() -> Settings:
         poll_interval_seconds=_as_int("POLL_INTERVAL_SECONDS", 5),
         data_dir=data_dir,
         database_path=database_path,
-        assemblyai_api_key=os.getenv("ASSEMBLYAI_API_KEY", "").strip() or None,
-        deepgram_api_key=os.getenv("DEEPGRAM_API_KEY", "").strip() or None,
-        huggingface_token=os.getenv("HUGGINGFACE_TOKEN", "").strip() or None,
+        fluidaudio_url=fluidaudio_url,
         max_workers=_as_int("MAX_WORKERS", 3),
         backend_api_token=os.getenv("BACKEND_API_TOKEN", "").strip() or None,
-        enable_local_transcription=os.getenv("ENABLE_LOCAL_TRANSCRIPTION", "true").lower()
-        in ("true", "1", "yes"),
         role=role,
-        gpu_workers=gpu_workers,
-        worker_port=_as_int("WORKER_PORT", 3001),
         download_concurrency=_as_int("DOWNLOAD_CONCURRENCY", 2),
-        downloader_port=_as_int("DOWNLOADER_PORT", 3002),
-        transcription_engine=os.getenv("TRANSCRIPTION_ENGINE", "onnx").lower(),
         mcp_port=_as_int("MCP_PORT", 3003),
         auth_url=os.getenv("AUTH_URL", "").strip(),
         auth_secret=os.getenv("AUTH_SECRET", "").strip(),
