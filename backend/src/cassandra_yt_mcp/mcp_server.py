@@ -29,7 +29,6 @@ ALL_TOOL_NAMES = [
     "read_transcript",
     "yt_search",
     "list_channel_videos",
-    "get_metadata",
     "get_comments",
     "watch_later_sync",
     "watch_later_status",
@@ -374,29 +373,6 @@ def create_mcp_server(settings: Settings) -> FastMCP:
             if cookies_file and cookies_file.exists():
                 cookies_file.unlink()
         return {"url": url, "tab": tab, "count": len(results), "results": results}
-
-    # ── Tool: get_metadata ──
-
-    @mcp.tool(description="Get full metadata for a video (works with any yt-dlp-supported URL).")
-    def get_metadata(
-        url: str,
-        ctx: Context,
-        token: AccessToken = CurrentAccessToken(),
-    ) -> dict:
-        runtime: AppRuntime = ctx.lifespan_context["runtime"]
-        acl: Enforcer | None = ctx.lifespan_context["enforcer"]
-        if acl:
-            _check_acl(acl, _get_email(token), "get_metadata")
-
-        cookies_file = _write_cookies_to_temp(token, ctx)
-        try:
-            metadata = runtime.youtube_info.get_metadata(url=url, cookies_file=cookies_file)
-        except RuntimeError as exc:
-            return {"error": "metadata_failed", "message": str(exc)}
-        finally:
-            if cookies_file and cookies_file.exists():
-                cookies_file.unlink()
-        return {"url": url, "metadata": metadata}
 
     # ── Tool: get_comments ──
 
