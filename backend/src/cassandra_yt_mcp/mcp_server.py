@@ -234,7 +234,8 @@ def create_mcp_server(settings: Settings) -> FastMCP:
 
     @mcp.tool(
         description=(
-            "Read a transcript by video ID. Formats: compact (default, token-efficient "
+            "Read a transcript by video ID or URL. If not cached, automatically queues "
+            "transcription and returns job info. Formats: compact (default, token-efficient "
             "``[MM:SS] S0: text``), markdown (full with metadata), text (plain), json (segments)."
         ),
     )
@@ -253,9 +254,14 @@ def create_mcp_server(settings: Settings) -> FastMCP:
 
         transcript = runtime.transcripts.get_by_video_id(video_id)
         if transcript is None:
+            # Auto-queue: treat video_id as URL if it looks like one, otherwise build YouTube URL
+            url = video_id if video_id.startswith("http") else f"https://www.youtube.com/watch?v={video_id}"
+            cookies_b64 = _get_youtube_cookies(token, ctx) if _is_youtube_url(url) else None
+            job = runtime.enqueue_transcription(url, cookies_b64=cookies_b64)
             return {
-                "error": "not_found",
-                "message": f"No transcript found for video_id '{video_id}'. Use the transcribe tool with the full URL instead.",
+                "queued": True,
+                "message": f"Transcript not cached — queued for transcription. Use job_status with job_id to check progress.",
+                **job,
             }
 
         import json  # noqa: PLC0415
