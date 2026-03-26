@@ -19,6 +19,10 @@ def make_settings(tmp_path: Path) -> Settings:
         auth_url="",
         auth_secret="",
         auth_yaml_path="/app/acl.yaml",
+        base_url="",
+        workos_client_id="",
+        workos_client_secret="",
+        workos_authkit_domain="",
     )
 
 
