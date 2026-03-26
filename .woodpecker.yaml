@@ -34,7 +34,7 @@ steps:
         --local dockerfile=backend
         --opt build-arg:YTDLP_CHANNEL=stable
         --opt "build-arg:AUTH_YAML_CONTENT=$AUTH_YAML_CONTENT"
-        --output type=image,name=registry.infra.svc.cluster.local:5000/cassandra-yt-mcp/backend:latest,push=true,registry.insecure=true
+        --output type=image,name=registry.infra.svc.cluster.local:5000/cassandra-media-mcp/backend:latest,push=true,registry.insecure=true
 
   - name: restart-backend
     image: moby/buildkit:v0.21.1
@@ -50,7 +50,7 @@ steps:
           -H "Authorization: Bearer $TOKEN" \
           -H "Content-Type: application/strategic-merge-patch+json" \
           -d "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$NOW\"}}}}}" \
-          "https://kubernetes.default.svc/apis/apps/v1/namespaces/production/deployments/cassandra-yt-mcp"
+          "https://kubernetes.default.svc/apis/apps/v1/namespaces/production/deployments/media-mcp"
 
   # ── Cron: rebuild with latest yt-dlp stable (no cache) ──
 
@@ -73,4 +73,4 @@ steps:
         --opt build-arg:YTDLP_CHANNEL=stable
         --opt "build-arg:AUTH_YAML_CONTENT=$AUTH_YAML_CONTENT"
         --opt no-cache=
-        --output type=image,name=registry.infra.svc.cluster.local:5000/cassandra-yt-mcp/backend:latest,push=true,registry.insecure=true
+        --output type=image,name=registry.infra.svc.cluster.local:5000/cassandra-media-mcp/backend:latest,push=true,registry.insecure=true
