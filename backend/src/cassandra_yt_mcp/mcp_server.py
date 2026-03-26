@@ -40,12 +40,40 @@ def _get_email(token: AccessToken) -> str:
     return token.claims.get("email", "")
 
 
-def _get_credentials(token: AccessToken) -> dict[str, str]:
-    return token.claims.get("credentials", {})
+def _get_credentials(token: AccessToken, ctx: Context | None = None) -> dict[str, str]:
+    """Get credentials from token claims (mcp_ key path) or fetch from auth service (WorkOS path)."""
+    creds = token.claims.get("credentials", {})
+    if creds:
+        return creds
+
+    # WorkOS tokens don't carry credentials — fetch from auth service
+    if ctx is None:
+        return {}
+    auth_url = ctx.lifespan_context.get("auth_url")
+    auth_secret = ctx.lifespan_context.get("auth_secret")
+    if not auth_url or not auth_secret:
+        return {}
+
+    email = _get_email(token)
+    if not email:
+        return {}
+
+    try:
+        import httpx  # noqa: PLC0415
+        resp = httpx.get(
+            f"{auth_url}/credentials/{email}/{SERVICE_ID}",
+            headers={"X-Auth-Secret": auth_secret},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("credentials") or {}
+    except Exception:  # noqa: BLE001
+        logger.warning("Failed to fetch credentials from auth service for %s", email)
+    return {}
 
 
-def _get_youtube_cookies(token: AccessToken) -> str | None:
-    creds = _get_credentials(token)
+def _get_youtube_cookies(token: AccessToken, ctx: Context | None = None) -> str | None:
+    creds = _get_credentials(token, ctx)
     return creds.get("youtube_cookies") or None
 
 
@@ -92,7 +120,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         runtime = AppRuntime(settings)
         runtime.start()
         try:
-            yield {"runtime": runtime, "enforcer": enforcer}
+            yield {"runtime": runtime, "enforcer": enforcer, "auth_url": settings.auth_url, "auth_secret": settings.auth_secret}
         finally:
             runtime.close()
             if mcp_key_provider is not None:
@@ -143,7 +171,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
 
         cookies_b64 = None
         if _is_youtube_url(url):
-            cookies_b64 = _get_youtube_cookies(token)
+            cookies_b64 = _get_youtube_cookies(token, ctx)
 
         return runtime.enqueue_transcription(url, cookies_b64=cookies_b64)
 
@@ -305,7 +333,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
             _check_acl(acl, _get_email(token), "yt_search")
 
         limit = max(1, min(limit, 25))
-        cookies_file = _write_cookies_to_temp(token)
+        cookies_file = _write_cookies_to_temp(token, ctx)
         try:
             results = runtime.youtube_info.search(query=query, limit=limit, cookies_file=cookies_file)
         except RuntimeError as exc:
@@ -335,7 +363,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         limit = max(1, min(limit, 50))
         if tab not in ("shorts", "videos", "streams"):
             tab = "videos"
-        cookies_file = _write_cookies_to_temp(token)
+        cookies_file = _write_cookies_to_temp(token, ctx)
         try:
             results = runtime.youtube_info.list_channel_videos(
                 channel_url=url, limit=limit, tab=tab, cookies_file=cookies_file,
@@ -360,7 +388,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         if acl:
             _check_acl(acl, _get_email(token), "get_metadata")
 
-        cookies_file = _write_cookies_to_temp(token)
+        cookies_file = _write_cookies_to_temp(token, ctx)
         try:
             metadata = runtime.youtube_info.get_metadata(url=url, cookies_file=cookies_file)
         except RuntimeError as exc:
@@ -390,7 +418,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         limit = max(1, min(limit, 100))
         if sort not in ("top", "new"):
             sort = "top"
-        cookies_file = _write_cookies_to_temp(token)
+        cookies_file = _write_cookies_to_temp(token, ctx)
         try:
             comments = runtime.youtube_info.get_comments(
                 url=url, limit=limit, sort=sort, cookies_file=cookies_file,
@@ -420,7 +448,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         if acl:
             _check_acl(acl, _get_email(token), "watch_later_sync")
 
-        cookies = _get_youtube_cookies(token)
+        cookies = _get_youtube_cookies(token, ctx)
         if not cookies:
             return {
                 "error": "no_cookies",
@@ -470,9 +498,9 @@ def create_mcp_server(settings: Settings) -> FastMCP:
 # ---------------------------------------------------------------------------
 
 
-def _write_cookies_to_temp(token: AccessToken) -> Path | None:
+def _write_cookies_to_temp(token: AccessToken, ctx: Context | None = None) -> Path | None:
     """Decode YouTube cookies from token credentials to a temp file."""
-    cookies_b64 = _get_youtube_cookies(token)
+    cookies_b64 = _get_youtube_cookies(token, ctx)
     if not cookies_b64:
         return None
 
