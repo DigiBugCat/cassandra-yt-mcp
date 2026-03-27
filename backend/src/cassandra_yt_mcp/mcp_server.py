@@ -114,13 +114,18 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     acl_path = Path(settings.auth_yaml_path)
     enforcer = load_enforcer(acl_path) if acl_path.exists() else None
 
+    # Shared state populated by lifespan, accessible to custom routes via closure.
+    _state: dict[str, object] = {}
+
     @asynccontextmanager
     async def lifespan(mcp: FastMCP):
         runtime = AppRuntime(settings)
         runtime.start()
+        _state["runtime"] = runtime
         try:
             yield {"runtime": runtime, "enforcer": enforcer, "auth_url": settings.auth_url, "auth_secret": settings.auth_secret}
         finally:
+            _state.clear()
             runtime.close()
             if mcp_key_provider is not None:
                 mcp_key_provider.close()
@@ -147,6 +152,20 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         from starlette.responses import Response  # noqa: PLC0415
 
         return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    # ── REST API ──
+    # Public job status endpoint — job ID acts as a capability token.
+
+    @mcp.custom_route("/api/jobs/{job_id}", methods=["GET"])
+    async def api_get_job(request):  # noqa: ANN001
+        from starlette.responses import JSONResponse  # noqa: PLC0415
+
+        runtime: AppRuntime = _state["runtime"]
+        job_id = request.path_params["job_id"]
+        result = runtime.get_job_status(job_id)
+        if "error" in result and result["error"] == "job_not_found":
+            return JSONResponse(result, status_code=404)
+        return JSONResponse(result)
 
     # ── Tool: transcribe ──
 
